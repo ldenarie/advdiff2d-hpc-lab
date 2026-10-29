@@ -11,7 +11,7 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 option(ADVDIFF_BUILD_TESTS "Build the test suite" ON)
-option(ADVDIFF_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
+option(ADVDIFF_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" ON)
 
 # Core library: data structures and kernels.
 add_library(advdiff src/kernel_seq.cpp)
