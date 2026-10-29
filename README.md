@@ -1,5 +1,7 @@
 # advdiff2d-hpc-lab
 
+[![CI](https://github.com/ldenarie/advdiff2d-hpc-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/ldenarie/advdiff2d-hpc-lab/actions/workflows/ci.yml)
+
 > **Work in progress — learning project.**
 
 A 2D advection-diffusion kernel in C++, used to learn and practise parallel
