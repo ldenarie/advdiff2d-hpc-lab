@@ -2,9 +2,9 @@
 //
 // TODO(block 2): implement each test and remove its SKIP().
 
-#include "field.hpp"
-#include "kernel.hpp"
-#include "problem.hpp"
+#include <advdiff/field.hpp>
+#include <advdiff/kernel.hpp>
+#include <advdiff/problem.hpp>
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
