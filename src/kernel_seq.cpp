@@ -4,13 +4,21 @@
 
 namespace advdiff {
 
+void apply_periodic_bc(Field& c) {
+    const int nx = c.nx();
+    const int ny = c.ny();
+    for (int i = 0; i < nx; ++i) {
+        c(i, -1) = c(i, ny - 1);
+        c(i, ny) = c(i, 0);
+    }
+    for (int j = 0; j < ny; ++j) {
+        c(-1, j) = c(nx - 1, j);
+        c(nx, j) = c(0, j);
+    }
+}
+
 // TODO(block 1): implement every function below, following docs/model.md.
 // Remove the `(void)` lines and the exceptions as you go.
-
-void apply_periodic_bc(Field& c) {
-    (void)c;
-    throw std::logic_error("apply_periodic_bc: not implemented yet");
-}
 
 void step_seq(const Field& c, Field& c_new, const Grid& g, const Physics& p, double dt) {
     (void)c; (void)c_new; (void)g; (void)p; (void)dt;
