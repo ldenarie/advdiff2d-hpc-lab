@@ -8,7 +8,18 @@ on:
 
 jobs:
   build-and-test:
+    name: ${{ matrix.name }}
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: release
+            build_type: Release
+            sanitize: OFF
+          - name: debug-sanitizers
+            build_type: Debug
+            sanitize: ON
     steps:
       - uses: actions/checkout@v5
 
@@ -21,7 +32,11 @@ jobs:
         run: lscpu | grep -E 'Model name|^CPU\(s\)|Thread\(s\) per core|Core\(s\) per socket|Socket\(s\)|cache'
 
       - name: Configure
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DADVDIFF_WARNINGS_AS_ERRORS=ON
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+          -DADVDIFF_WARNINGS_AS_ERRORS=ON
+          -DADVDIFF_SANITIZE=${{ matrix.sanitize }}
 
       - name: Build
         run: cmake --build build
