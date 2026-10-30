@@ -12,6 +12,12 @@ endif()
 
 option(ADVDIFF_BUILD_TESTS "Build the test suite" ON)
 option(ADVDIFF_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" ON)
+option(ADVDIFF_SANITIZE "Build with AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+
+if(ADVDIFF_SANITIZE)
+  add_compile_options(-fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
+  add_link_options(-fsanitize=address,undefined)
+endif()
 
 # Core library: data structures and kernels.
 add_library(advdiff src/kernel_seq.cpp)
