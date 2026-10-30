@@ -8,11 +8,15 @@
   "customizations": {
     "vscode": {
       "settings": {
+        "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+        "cmake.generator": "Ninja",
+        "cmake.buildDirectory": "${workspaceFolder}/build",
         "files.trimTrailingWhitespace": true
       },
       "extensions": [
         "ms-vscode.cpptools",
-        "ms-vscode.cmake-tools"
+        "ms-vscode.cmake-tools",
+        "github.vscode-github-actions"
       ]
     }
   }
