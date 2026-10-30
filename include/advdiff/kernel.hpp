@@ -1,7 +1,7 @@
 #pragma once
 
-#include "field.hpp"
-#include "problem.hpp"
+#include <advdiff/field.hpp>
+#include <advdiff/problem.hpp>
 
 namespace advdiff {
 

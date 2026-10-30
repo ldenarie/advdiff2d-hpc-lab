@@ -15,7 +15,7 @@ option(ADVDIFF_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" ON)
 
 # Core library: data structures and kernels.
 add_library(advdiff src/kernel_seq.cpp)
-target_include_directories(advdiff PUBLIC src)
+target_include_directories(advdiff PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_options(advdiff PUBLIC
   -Wall -Wextra -Wpedantic
   $<$<BOOL:${ADVDIFF_WARNINGS_AS_ERRORS}>:-Werror>)
