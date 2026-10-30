@@ -1,4 +1,4 @@
-#include "kernel.hpp"
+#include <advdiff/kernel.hpp>
 
 #include <stdexcept>
 

@@ -7,9 +7,9 @@
 //   kappa      diffusion coefficient        (default 1e-4)
 //   s          target stability number S    (default 0.9, must be <= 1)
 
-#include "field.hpp"
-#include "kernel.hpp"
-#include "problem.hpp"
+#include <advdiff/field.hpp>
+#include <advdiff/kernel.hpp>
+#include <advdiff/problem.hpp>
 
 #include <chrono>
 #include <cmath>
