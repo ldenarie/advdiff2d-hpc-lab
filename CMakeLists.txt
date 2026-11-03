@@ -21,7 +21,10 @@ endif()
 
 # Core library: data structures and kernels.
 add_library(advdiff src/kernel_seq.cpp)
-target_include_directories(advdiff PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(advdiff
+    PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/include
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/include
+)
 target_compile_options(advdiff PUBLIC
   -Wall -Wextra -Wpedantic
   $<$<BOOL:${ADVDIFF_WARNINGS_AS_ERRORS}>:-Werror>)
@@ -37,6 +40,9 @@ if(ADVDIFF_BUILD_TESTS)
   include(Catch)
   add_executable(test_kernel tests/test_kernel.cpp)
   target_link_libraries(test_kernel PRIVATE advdiff Catch2::Catch2WithMain)
+  target_include_directories(test_kernel PRIVATE ${PROJECT_SOURCE_DIR}/src/include)
   # Catch2 exits with code 4 when a test is skipped; report it as skipped, not failed.
-  catch_discover_tests(test_kernel PROPERTIES SKIP_RETURN_CODE 4)
+  catch_discover_tests(test_kernel
+    PROPERTIES SKIP_RETURN_CODE 4
+    EXTRA_ARGS --rng-seed 12345)
 endif()

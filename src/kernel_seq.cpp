@@ -1,4 +1,5 @@
 #include <advdiff/kernel.hpp>
+#include <advdiff/details/kernel.hpp>
 
 #include <stdexcept>
 
@@ -15,13 +16,16 @@ void advdiff::apply_periodic_bc(Field& c) {
     }
 }
 
+void advdiff::step_seq(const Field& c, Field& c_new, const Grid& g, const Physics& p, double dt) {
+    for (int j = 0; j < g.ny; ++j) {
+        for (int i = 0; i < g.nx; ++i) {
+            c_new(i, j) = details::advdiff_kernel(c(i, j), c(i - 1, j), c(i + 1, j), c(i, j - 1), c(i, j + 1), g, p, dt);
+        }
+    }
+}
+
 // TODO(block 1): implement every function below, following docs/model.md.
 // Remove the `(void)` lines and the exceptions as you go.
-
-void advdiff::step_seq(const Field& c, Field& c_new, const Grid& g, const Physics& p, double dt) {
-    (void)c; (void)c_new; (void)g; (void)p; (void)dt;
-    throw std::logic_error("step_seq: not implemented yet");
-}
 
 double advdiff::stability_number(const Grid& g, const Physics& p, double dt) {
     (void)g; (void)p; (void)dt;
