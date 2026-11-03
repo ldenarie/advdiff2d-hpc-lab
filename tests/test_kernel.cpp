@@ -16,8 +16,6 @@
 
 #include <random>
 
-namespace {
-
 using advdiff::Field;
 using advdiff::Grid;
 using advdiff::Physics;
@@ -378,8 +376,93 @@ TEST_CASE("Applying step_seq matches the naive implementation", "[kernel]") {
     }
 }
 
+TEST_CASE("stability_number is computed properly") {
+    advdiff::Physics p;
+    advdiff::Grid g;
+    double dt = 1e-3;
+    double expected = 0.;
+
+    SECTION("u = v = 0, kappa = 0") {
+        p.u = 0.;
+        p.v = 0.;
+        p.kappa = 0.;
+
+        g.nx = GENERATE(5, 10, 100);
+        g.ny = GENERATE(5, 10, 100);
+
+        dt = 1e-3;
+        expected = 0.;
+    }
+
+    SECTION("u = 2, v = 3, kappa = 0.1, dx = 1e-3, dy = 1e-3/1.3") {
+        p.u = GENERATE(-2., 2.);
+        p.v = GENERATE(-3., 3.);
+        p.kappa = .1;
+
+        g.nx = 1e3; // g.nx = g.lx / g.dx
+        g.ny = 1.3e3; // g.ny = g.ly / g.dy
+
+        dt = 1e-3;
+        expected = 543.9;
+    }
+
+    REQUIRE_THAT(advdiff::stability_number(g, p, dt), Catch::Matchers::WithinRel(expected));
+}
+
+namespace {
+
+double compute_dt_from_S(const advdiff::Grid& g, const advdiff::Physics& p, double expected_S) {
+    return expected_S / advdiff::stability_number(g, p, 1.);
+}
+
+} // namespace
+
 TEST_CASE("A uniform field is unchanged", "[kernel]") {
-    SKIP("not implemented yet");
+    const auto rows = 64;
+    const auto cols = 31;
+    const auto c_value = GENERATE(-5., -1e-3, 0., 1e-3, 5.);
+
+    advdiff::Physics p;
+    p.u = GENERATE(-13., 0., 5.7);
+    p.v = GENERATE(-13., 0., 5.7);
+    p.kappa = GENERATE(0., 0.5, 13.);
+
+    advdiff::Grid g;
+    g.nx = cols;
+    g.ny = rows;
+
+    // u, v, and kappa maximum absolute value is 13
+    // In order for S to be less or equal to 1, dt must be sufficiently low.
+    const auto max_dt = p.u == 0. and p.v == 0. and p.kappa == 0. ?
+                            1e-3 :
+                            compute_dt_from_S(g, p, 1.);
+    const auto dt = GENERATE_COPY(max_dt/100., max_dt/10., max_dt);
+
+    double c_x = std::abs(p.u) * dt / g.dx();
+    double c_y = std::abs(p.v) * dt / g.dy();
+    double d_x = p.kappa * dt / (g.dx() * g.dx());
+    double d_y = p.kappa * dt / (g.dy() * g.dy());
+    double s = c_x + c_y + 2 * d_x + 2 * d_y;
+
+    CAPTURE(rows, cols, c_value, p.u, p.v, p.kappa, dt, s);
+
+    advdiff::Field c{g.nx, g.ny};
+    for (int j = 0; j < g.ny; ++j) {
+        for (int i = 0; i < g.nx; ++i) {
+            c(i, j) = c_value;
+        }
+    }
+
+    advdiff::Field c_new{g.nx, g.ny};
+
+    advdiff::apply_periodic_bc(c);
+    advdiff::step_seq(c, c_new, g, p, dt);
+
+    for (int j = 0; j < g.ny; ++j) {
+        for (int i = 0; i < g.nx; ++i) {
+            REQUIRE(c_new(i, j) == c_value);
+        }
+    }
 }
 
 TEST_CASE("Total mass is conserved", "[kernel]") {
@@ -397,5 +480,3 @@ TEST_CASE("Pure diffusion converges at second order", "[convergence]") {
 TEST_CASE("Pure upwind advection converges at first order", "[convergence]") {
     SKIP("not implemented yet");
 }
-
-}  // namespace
