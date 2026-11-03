@@ -2,6 +2,7 @@
 #include <advdiff/details/kernel.hpp>
 
 #include <cmath>
+#include <numeric>
 #include <stdexcept>
 
 void advdiff::apply_periodic_bc(Field& c) {
@@ -33,13 +34,16 @@ double advdiff::stability_number(const Grid& g, const Physics& p, double dt) {
     return c_x + c_y + 2 * d_x + 2 * d_y;
 }
 
+double advdiff::total_mass(const Field& c, const Grid& g) {
+    double sum = 0.;
+    for (int j = 0; j < g.ny ; ++j) {
+        sum += std::accumulate(c.data() + c.index(0, j), c.data() + c.index(g.nx - 1, j) + 1, 0.);
+    }
+    return sum * g.dx() * g.dy();
+}
+
 // TODO(block 1): implement every function below, following docs/model.md.
 // Remove the `(void)` lines and the exceptions as you go.
-
-double advdiff::total_mass(const Field& c, const Grid& g) {
-    (void)c; (void)g;
-    throw std::logic_error("total_mass: not implemented yet");
-}
 
 double advdiff::field_min(const Field& c) {
     (void)c;
