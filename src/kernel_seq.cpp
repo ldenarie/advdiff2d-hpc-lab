@@ -1,9 +1,10 @@
 #include <advdiff/kernel.hpp>
 #include <advdiff/details/kernel.hpp>
 
+#include <algorithm>
 #include <cmath>
+#include <limits>
 #include <numeric>
-#include <stdexcept>
 
 void advdiff::apply_periodic_bc(Field& c) {
     const int nx = c.nx();
@@ -42,15 +43,20 @@ double advdiff::total_mass(const Field& c, const Grid& g) {
     return sum * g.dx() * g.dy();
 }
 
-// TODO(block 1): implement every function below, following docs/model.md.
-// Remove the `(void)` lines and the exceptions as you go.
-
 double advdiff::field_min(const Field& c) {
-    (void)c;
-    throw std::logic_error("field_min: not implemented yet");
+    auto min_value = std::numeric_limits<double>::max();
+    for (int j = 0; j < c.ny() ; ++j) {
+        const auto line_min_element = std::min_element(c.data() + c.index(0, j), c.data() + c.index(c.nx() - 1, j) + 1);
+        min_value = std::min(min_value, *line_min_element);
+    }
+    return min_value;
 }
 
 double advdiff::field_max(const Field& c) {
-    (void)c;
-    throw std::logic_error("field_max: not implemented yet");
+    auto max_value = std::numeric_limits<double>::lowest();
+    for (int j = 0; j < c.ny() ; ++j) {
+        const auto line_max_element = std::max_element(c.data() + c.index(0, j), c.data() + c.index(c.nx() - 1, j) + 1);
+        max_value = std::max(max_value, *line_max_element);
+    }
+    return max_value;
 }

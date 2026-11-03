@@ -546,11 +546,170 @@ TEST_CASE("Total mass is conserved", "[kernel]") {
     }
 
     REQUIRE_THAT(advdiff::total_mass(c, g), Catch::Matchers::WithinRel(expected_total_mass, 1e-12));
+}
 
+TEST_CASE("field_min and field_max works") {
+    advdiff::Grid g;
+    g.nx = 4;
+    g.ny = 3;
+    advdiff::Field c(g.nx, g.ny);
+
+    double expected_min;
+    double expected_max;
+
+    SECTION ("All strictly positive") {
+        c(0, 0) = 1.;
+        c(1, 0) = 5.;
+        c(2, 0) = 13.;
+        c(3, 0) = 17.;
+        c(0, 1) = 12.;
+        c(1, 1) = 8.;
+        c(2, 1) = 3.;
+        c(3, 1) = 4.;
+        c(0, 2) = 19.;
+        c(1, 2) = 2.;
+        c(2, 2) = 2.;
+        c(3, 2) = 4.;
+
+        expected_min = 1.;
+        expected_max = 19.;
+    }
+
+    SECTION ("All strictly negative") {
+        c(0, 0) = -1.;
+        c(1, 0) = -5.;
+        c(2, 0) = -13.;
+        c(3, 0) = -17.;
+        c(0, 1) = -12.;
+        c(1, 1) = -8.;
+        c(2, 1) = -3.;
+        c(3, 1) = -4.;
+        c(0, 2) = -19.;
+        c(1, 2) = -2.;
+        c(2, 2) = -2.;
+        c(3, 2) = -4.;
+
+        expected_min = -19.;
+        expected_max = -1.;
+    }
+
+    SECTION ("All positive") {
+        c(0, 0) = 1.;
+        c(1, 0) = 5.;
+        c(2, 0) = 13.;
+        c(3, 0) = 17.;
+        c(0, 1) = 12.;
+        c(1, 1) = 8.;
+        c(2, 1) = 3.;
+        c(3, 1) = 4.;
+        c(0, 2) = 19.;
+        c(1, 2) = 0.;
+        c(2, 2) = 2.;
+        c(3, 2) = 4.;
+
+        expected_min = 0.;
+        expected_max = 19.;
+    }
+
+    SECTION ("All negative") {
+        c(0, 0) = -1.;
+        c(1, 0) = -5.;
+        c(2, 0) = -13.;
+        c(3, 0) = -17.;
+        c(0, 1) = -12.;
+        c(1, 1) = -8.;
+        c(2, 1) = -3.;
+        c(3, 1) = -4.;
+        c(0, 2) = -19.;
+        c(1, 2) = 0.;
+        c(2, 2) = -2.;
+        c(3, 2) = -4.;
+
+        expected_min = -19.;
+        expected_max = 0.;
+    }
+
+    SECTION ("Negative and positive") {
+        c(0, 0) = 1.;
+        c(1, 0) = -5.;
+        c(2, 0) = 13.;
+        c(3, 0) = 17.;
+        c(0, 1) = -12.;
+        c(1, 1) = 8.;
+        c(2, 1) = -3.;
+        c(3, 1) = -4.;
+        c(0, 2) = -19.;
+        c(1, 2) = 2.;
+        c(2, 2) = 2.;
+        c(3, 2) = -4.;
+
+        expected_min = -19.;
+        expected_max = 17.;
+    }
+
+    REQUIRE_THAT(advdiff::field_min(c), Catch::Matchers::WithinRel(expected_min));
+    REQUIRE_THAT(advdiff::field_max(c), Catch::Matchers::WithinRel(expected_max));
+
+    // application of the periodic boundary condition does not change the min and max
+    advdiff::apply_periodic_bc(c);
+    REQUIRE_THAT(advdiff::field_min(c), Catch::Matchers::WithinRel(expected_min));
+    REQUIRE_THAT(advdiff::field_max(c), Catch::Matchers::WithinRel(expected_max));
 }
 
 TEST_CASE("The discrete maximum principle holds when S <= 1", "[kernel]") {
-    SKIP("not implemented yet");
+    const auto rows = 64;
+    const auto cols = 31;
+
+    Gaussian gaussian{
+        .height = 12.5,
+        .mu_x = 0.325,
+        .mu_y = 0.87768,
+        .sigma_x = 0.1,
+        .sigma_y = 0.053
+    };
+
+    advdiff::Physics p;
+    p.u = GENERATE(-13., 5.7);
+    p.v = GENERATE(-13., 5.7);
+    p.kappa = GENERATE(0.5, 13.);
+
+    advdiff::Grid g;
+    g.nx = cols;
+    g.ny = rows;
+
+    const auto dt = compute_dt_from_S(g, p, 1.);
+
+    double s = advdiff::stability_number(g, p, dt);
+
+    CAPTURE(p.u, p.v, p.kappa, dt, s);
+
+    advdiff::Field c{g.nx, g.ny};
+    for (int j = 0; j < g.ny; ++j) {
+        for (int i = 0; i < g.nx; ++i) {
+            c(i, j) = gaussian.value(g.x(i), g.y(j));
+        }
+    }
+
+    advdiff::Field c_new{g.nx, g.ny};
+
+    const auto nb_step = 500;
+
+    const auto initial_min_value = advdiff::field_min(c);
+    const auto initial_max_value = advdiff::field_max(c);
+    REQUIRE(initial_min_value <= initial_max_value);
+
+    for (int step = 0; step < nb_step ; ++step) {
+        advdiff::apply_periodic_bc(c);
+        advdiff::step_seq(c, c_new, g, p, dt);
+        std::swap(c, c_new);
+    }
+
+    const auto final_min_value = advdiff::field_min(c);
+    const auto final_max_value = advdiff::field_max(c);
+
+    REQUIRE(final_min_value <= final_max_value);
+    REQUIRE(final_min_value >= initial_min_value - 1e-14);
+    REQUIRE(final_max_value <= initial_max_value + 1e-14);
 }
 
 TEST_CASE("Pure diffusion converges at second order", "[convergence]") {
