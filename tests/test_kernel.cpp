@@ -14,6 +14,7 @@
 #include <catch2/generators/catch_generators_range.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
+#include <cmath>
 #include <random>
 
 using advdiff::Field;
@@ -438,11 +439,7 @@ TEST_CASE("A uniform field is unchanged", "[kernel]") {
                             compute_dt_from_S(g, p, 1.);
     const auto dt = GENERATE_COPY(max_dt/100., max_dt/10., max_dt);
 
-    double c_x = std::abs(p.u) * dt / g.dx();
-    double c_y = std::abs(p.v) * dt / g.dy();
-    double d_x = p.kappa * dt / (g.dx() * g.dx());
-    double d_y = p.kappa * dt / (g.dy() * g.dy());
-    double s = c_x + c_y + 2 * d_x + 2 * d_y;
+    double s = advdiff::stability_number(g, p, dt);
 
     CAPTURE(rows, cols, c_value, p.u, p.v, p.kappa, dt, s);
 
@@ -465,8 +462,91 @@ TEST_CASE("A uniform field is unchanged", "[kernel]") {
     }
 }
 
+TEST_CASE("total_mass properly works") {
+    advdiff::Grid g;
+    g.nx = 10;
+    g.ny = 5;
+    advdiff::Field c(g.nx, g.ny);
+    for (int j = 0; j < g.ny ; ++j) {
+        for (int i = 0; i < g.nx ; ++i) {
+            c(i, j) = 1'000 * j + i;
+        }
+    }
+    // Each row sums to 1'000 * nx * j + 45, Total is 1'000 * 100 + 45 * 5 = 100'225
+    // Each cell area is 1/50
+    REQUIRE_THAT(advdiff::total_mass(c, g), Catch::Matchers::WithinRel(2'004.5));
+
+    // application of the periodic boundary condition does not change the sum
+    advdiff::apply_periodic_bc(c);
+    REQUIRE_THAT(advdiff::total_mass(c, g), Catch::Matchers::WithinRel(2'004.5));
+}
+
+namespace {
+
+struct Gaussian {
+    double height;
+    double mu_x;
+    double mu_y;
+    double sigma_x;
+    double sigma_y;
+
+    double value(double x, double y) {
+        const auto dx = x - mu_x;
+        const auto dy = y - mu_y;
+        return height * std::exp(-(dx * dx / (2 * sigma_x * sigma_x) + dy * dy / (2 * sigma_y * sigma_y)));
+    }
+};
+
+} // namespace
+
 TEST_CASE("Total mass is conserved", "[kernel]") {
-    SKIP("not implemented yet");
+    const auto rows = 64;
+    const auto cols = 31;
+
+    Gaussian gaussian{
+        .height = 12.5,
+        .mu_x = 0.325,
+        .mu_y = 0.87768,
+        .sigma_x = 0.1,
+        .sigma_y = 0.053
+    };
+
+    advdiff::Physics p;
+    p.u = GENERATE(-13., 5.7);
+    p.v = GENERATE(-13., 5.7);
+    p.kappa = GENERATE(0.5, 13.);
+
+    advdiff::Grid g;
+    g.nx = cols;
+    g.ny = rows;
+
+    const auto dt = compute_dt_from_S(g, p, 1.);
+
+    double s = advdiff::stability_number(g, p, dt);
+
+    CAPTURE(p.u, p.v, p.kappa, dt, s);
+
+    advdiff::Field c{g.nx, g.ny};
+    for (int j = 0; j < g.ny; ++j) {
+        for (int i = 0; i < g.nx; ++i) {
+            c(i, j) = gaussian.value(g.x(i), g.y(j));
+        }
+    }
+
+    advdiff::Field c_new{g.nx, g.ny};
+
+    const auto nb_step = 500;
+
+    const auto expected_total_mass = advdiff::total_mass(c, g);
+
+    for (int step = 0; step < nb_step ; ++step) {
+        advdiff::apply_periodic_bc(c);
+        advdiff::step_seq(c, c_new, g, p, dt);
+        std::swap(c, c_new);
+    }
+
+    REQUIRE_THAT(advdiff::total_mass(c, g), Catch::Matchers::WithinRel(expected_total_mass, 1e-12));
+
 }
 
 TEST_CASE("The discrete maximum principle holds when S <= 1", "[kernel]") {
