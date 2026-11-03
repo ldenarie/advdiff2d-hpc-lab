@@ -1,6 +1,7 @@
 #include <advdiff/kernel.hpp>
 #include <advdiff/details/kernel.hpp>
 
+#include <cmath>
 #include <stdexcept>
 
 void advdiff::apply_periodic_bc(Field& c) {
@@ -24,13 +25,16 @@ void advdiff::step_seq(const Field& c, Field& c_new, const Grid& g, const Physic
     }
 }
 
+double advdiff::stability_number(const Grid& g, const Physics& p, double dt) {
+    const double c_x = std::abs(p.u) * dt / g.dx();
+    const double c_y = std::abs(p.v) * dt / g.dy();
+    const double d_x = p.kappa * dt / (g.dx() * g.dx());
+    const double d_y = p.kappa * dt / (g.dy() * g.dy());
+    return c_x + c_y + 2 * d_x + 2 * d_y;
+}
+
 // TODO(block 1): implement every function below, following docs/model.md.
 // Remove the `(void)` lines and the exceptions as you go.
-
-double advdiff::stability_number(const Grid& g, const Physics& p, double dt) {
-    (void)g; (void)p; (void)dt;
-    throw std::logic_error("stability_number: not implemented yet");
-}
 
 double advdiff::total_mass(const Field& c, const Grid& g) {
     (void)c; (void)g;
