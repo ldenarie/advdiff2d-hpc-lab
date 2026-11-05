@@ -15,6 +15,7 @@
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include <cmath>
+#include <numbers>
 #include <random>
 
 using advdiff::Field;
@@ -712,8 +713,86 @@ TEST_CASE("The discrete maximum principle holds when S <= 1", "[kernel]") {
     REQUIRE(final_max_value <= initial_max_value + 1e-14);
 }
 
+namespace {
+
+double fourier_mode(int i, int j, const advdiff::Grid& g) {
+    return 1. + std::sin(2 * std::numbers::pi * g.x(i)) * std::sin(2 * std::numbers::pi * g.y(j));
+}
+
+template <class ExactSolutionFunction>
+double rms_error(const advdiff::Field& c, const advdiff::Grid& g, double T, ExactSolutionFunction&& exact_solution) {
+    double total_square_error = 0.;
+    for (int j = 0; j < g.ny; ++j) {
+        for (int i = 0; i < g.nx; ++i) {
+            const auto cell_error = c(i, j) - exact_solution(g.x(i), g.y(j), T);
+            total_square_error += (cell_error * cell_error);
+        }
+    }
+    return std::sqrt(total_square_error / (g.nx * g.ny));
+}
+
+template <class ComputeDeltaT, class ExactSolutionFunction>
+double e_n(int n, double u, double v, double kappa, double T, ComputeDeltaT&& dt_computer, ExactSolutionFunction&& exact_solution) {
+    advdiff::Physics p{
+        .u = u,
+        .v = v,
+        .kappa = kappa
+    };
+
+    advdiff::Grid g {
+        .nx = n,
+        .ny = n
+    };
+
+    advdiff::Field c{g.nx, g.ny};
+    for (int j = 0; j < g.ny; ++j) {
+        for (int i = 0; i < g.nx; ++i) {
+            c(i, j) = fourier_mode(i, j, g);
+        }
+    }
+
+    advdiff::Field c_new{g.nx, g.ny};
+
+    const auto nb_step = std::ceil(T / dt_computer(g, p));
+    const auto dt = T / nb_step;
+
+    for (int step = 0; step < nb_step ; ++step) {
+        advdiff::apply_periodic_bc(c);
+        advdiff::step_seq(c, c_new, g, p, dt);
+        std::swap(c, c_new);
+    }
+
+    return rms_error(c, g, T, exact_solution);
+}
+
+} // namespace
+
 TEST_CASE("Pure diffusion converges at second order", "[convergence]") {
-    SKIP("not implemented yet");
+    const auto kappa = .1;
+    const auto T = .05;
+
+    auto pure_diffusion_exact_solution = [kappa](double x, double y, double t) {
+        using std::numbers::pi;
+        return 1 +
+                  std::sin(2 * pi * x) *
+                  std::sin(2 * pi * y) *
+                  std::exp(-8 * pi * pi * kappa * t);
+    };
+
+    auto dt_computer = [](const advdiff::Grid& g, const advdiff::Physics& p) {
+        return 0.2 * g.dx() * g.dx() / p.kappa;
+    };
+
+    const auto e_32 = e_n(32, 0., 0., kappa, T, dt_computer, pure_diffusion_exact_solution);
+    const auto e_64 = e_n(64, 0., 0., kappa, T, dt_computer, pure_diffusion_exact_solution);
+    const auto e_128 = e_n(128, 0., 0., kappa, T, dt_computer, pure_diffusion_exact_solution);
+
+    const auto order_32_64 = std::log2(e_32 / e_64);
+    const auto order_64_128 = std::log2(e_64 / e_128);
+    CAPTURE(e_32, e_64, e_128, order_32_64, order_64_128);
+
+    REQUIRE_THAT(order_32_64, Catch::Matchers::WithinAbs(2., .2));
+    REQUIRE_THAT(order_64_128, Catch::Matchers::WithinAbs(2., .2));
 }
 
 TEST_CASE("Pure upwind advection converges at first order", "[convergence]") {
