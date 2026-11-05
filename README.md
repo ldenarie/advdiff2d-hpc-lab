@@ -25,7 +25,7 @@ programming (OpenMP, then MPI), vectorization and performance measurement.
 
 | Step | Status |
 |---|---|
-| Sequential kernel and tests | in progress |
+| Sequential kernel and tests | done |
 | Profiling | planned |
 | OpenMP | planned |
 | Vectorization | planned |
