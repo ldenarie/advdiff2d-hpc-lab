@@ -98,7 +98,7 @@ touching the kernel.
 | Advection order | `kappa = 0`, `u = 1`, `v = 0.5`, `T = 0.25`, same mode, `dt` from `S = 0.5` (adjusted to reach `T` exactly), grids 64, 128, 256 | observed order vs. exact translated mode: between 0.9 and 1.1 |
 
 Choose `dt` so that the final time is reached in an integer number of steps
-(compute the number of steps, then adjust `dt = T / steps`).
+(compute the number of steps rounded up, then adjust `dt = T / steps`, so that `dt` can only decrease).
 
 The observed order between two grids `n` and `2n` is
 `log2(error_n / error_2n)`.
