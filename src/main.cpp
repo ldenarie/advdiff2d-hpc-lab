@@ -9,12 +9,12 @@
 //         Warm-up repetitions absorb first-touch page faults and cache effects of the first steps.
 //
 // Usage: advdiff2d [key=value ...]
-//   kernel     used kernel (only seq for now)  (default seq)
-//   nx, ny     grid size                       (default 512 x 512)
-//   steps      number of time steps in a run   (default 200)
-//   reps       number of run to benchmark      (default to 3)
-//   warmup     number of warmup run            (default to 1)
-//   output     output format (text|csv)        (default to text)
+//   kernel     used kernel (weighted|naive|incremental) (default incremental)
+//   nx, ny     grid size                                (default 512 x 512)
+//   steps      number of time steps in a run            (default 200)
+//   reps       number of run to benchmark               (default to 3)
+//   warmup     number of warmup run                     (default to 1)
+//   output     output format (text|csv)                 (default to text)
 
 #include <advdiff/field.hpp>
 #include <advdiff/kernel.hpp>
@@ -134,10 +134,18 @@ void run_configuration(int nx, int ny, const BenchmarkConfiguration& conf, OUTPU
     advdiff::Field c_new(params.g.nx, params.g.ny);
     init_gaussian(c, params.g, 0.5 * params.g.lx, 0.5 * params.g.ly, 0.05 * params.g.lx);
 
-    auto advance = [&c, &c_new, &params](int nb_steps) {
+    auto advance = [&c, &c_new, &params, &conf](int nb_steps) {
+        auto kernel_function = [](std::string_view kernel) {
+            if (kernel =="naive") {
+                return advdiff::step_naive;
+            } else if (kernel == "weighted") {
+                return advdiff::step_weighted;
+            }
+            return advdiff::step_incremental;
+        } (conf.kernel);
         for (int n = 0; n < nb_steps; ++n) {
             advdiff::apply_periodic_bc(c);
-            advdiff::step_seq(c, c_new, params.g, params.p, params.dt);
+            kernel_function(c, c_new, params.g, params.p, params.dt);
             std::swap(c, c_new); // O(1): swaps the underlying buffers
         }
     };
@@ -226,9 +234,9 @@ int main(int argc, char** argv) {
     try {
         const Options opts = parse_args(argc, argv);
 
-        const std::string kernel = get<std::string>(opts, "kernel", "seq");
-        if (kernel != "seq") {
-            throw std::invalid_argument(std::format("Unknown kernel. Got: {}, Expected: seq", kernel));
+        const std::string kernel = get<std::string>(opts, "kernel", "incremental");
+        if (kernel != "weighted" and kernel != "naive" and kernel != "incremental") {
+            throw std::invalid_argument(std::format("Unknown kernel. Got: {}, Expected: weighted|naive|incremental", kernel));
         }
 
         const int nx = get<int>(opts, "nx", 512);

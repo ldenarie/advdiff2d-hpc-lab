@@ -10,7 +10,7 @@ on:
         default: "128 512 2048 4096"
       kernels:
         description: "Kernels"
-        default: "seq"
+        default: "incremental"
       threads:
         description: "OMP_NUM_THREADS values"
         default: "1"

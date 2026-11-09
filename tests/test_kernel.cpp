@@ -74,8 +74,8 @@ TEST_CASE("Ghost cells copy the opposite interior edges", "[bc]") {
     }
 }
 
-TEST_CASE("Kernel function is correct", "[kernel]") {
-    using advdiff::details::advdiff_kernel;
+TEST_CASE("Naive kernel function is correct", "[kernel]") {
+    using advdiff::details::advdiff_kernel_naive;
 
     advdiff::Physics p;
     p.u = GENERATE(-2., 0, 2.);
@@ -115,10 +115,471 @@ TEST_CASE("Kernel function is correct", "[kernel]") {
                             south_factor * south +
                             north_factor * north;
 
-    REQUIRE_THAT(advdiff_kernel(cell, west, east, south, north, g, p, dt), Catch::Matchers::WithinAbs(expected, 1e-11));
+    REQUIRE_THAT(advdiff_kernel_naive(cell, west, east, south, north, g, p, dt), Catch::Matchers::WithinAbs(expected, 1e-11));
 }
 
-TEST_CASE("step_seq for specific fields") {
+TEST_CASE("Kernel factors are correct", "[kernel]") {
+    advdiff::Grid g;
+    const auto dx = 2.;
+    const auto dy = 3.;
+    g.nx = 100;
+    g.ny = 100;
+    g.lx = g.nx * dx;
+    g.ly = g.ny * dy;
+
+    const auto dt = 36.;
+
+    advdiff::Physics p;
+    double expected_cell_factor;
+    double expected_west_factor;
+    double expected_east_factor;
+    double expected_south_factor;
+    double expected_north_factor;
+
+    SECTION("u = -2, v = -3, kappa = 0") {
+        p.u = -2.;
+        p.v = -3.;
+        p.kappa = 0.;
+
+        expected_cell_factor = -71.;
+        expected_west_factor = 0.;
+        expected_east_factor = 36.;
+        expected_north_factor = 36.;
+        expected_south_factor = 0.;
+    }
+
+    SECTION("u = -2, v = -3, kappa = 1e-3") {
+        p.u = -2.;
+        p.v = -3.;
+        p.kappa = 1e-3;
+
+        expected_cell_factor = -71.026;
+        expected_west_factor = 9e-3;
+        expected_east_factor = 36.009;
+        expected_north_factor = 36.004;
+        expected_south_factor = 4e-3;
+    }
+
+    SECTION("u = -2, v = -3, kappa = 1") {
+        p.u = -2.;
+        p.v = -3.;
+        p.kappa = 1.;
+
+        expected_cell_factor = -97.;
+        expected_west_factor = 9.;
+        expected_east_factor = 45.;
+        expected_north_factor = 40.;
+        expected_south_factor = 4.;
+    }
+
+    SECTION("u = -2, v = -3, kappa = 2") {
+        p.u = -2.;
+        p.v = -3.;
+        p.kappa = 2.;
+
+        expected_cell_factor = -123.;
+        expected_west_factor = 18.;
+        expected_east_factor = 54.;
+        expected_north_factor = 44.;
+        expected_south_factor = 8.;
+    }
+
+    SECTION("u = -2, v = 0, kappa = 0") {
+        p.u = -2.;
+        p.v = 0.;
+        p.kappa = 0.;
+
+        expected_cell_factor = -35.;
+        expected_west_factor = 0.;
+        expected_east_factor = 36.;
+        expected_north_factor = 0.;
+        expected_south_factor = 0.;
+    }
+
+    SECTION("u = -2, v = 0, kappa = 1e-3") {
+        p.u = -2.;
+        p.v = 0.;
+        p.kappa = 1e-3;
+
+        expected_cell_factor = -35.026;
+        expected_west_factor = 9e-3;
+        expected_east_factor = 36.009;
+        expected_north_factor = 4e-3;
+        expected_south_factor = 4e-3;
+    }
+
+    SECTION("u = -2, v = 0, kappa = 1") {
+        p.u = -2.;
+        p.v = 0.;
+        p.kappa = 1.;
+
+        expected_cell_factor = -61.;
+        expected_west_factor = 9.;
+        expected_east_factor = 45.;
+        expected_north_factor = 4.;
+        expected_south_factor = 4.;
+    }
+
+    SECTION("u = -2, v = 0, kappa = 2") {
+        p.u = -2.;
+        p.v = 0.;
+        p.kappa = 2.;
+
+        expected_cell_factor = -87.;
+        expected_west_factor = 18.;
+        expected_east_factor = 54.;
+        expected_north_factor = 8.;
+        expected_south_factor = 8.;
+    }
+
+    SECTION("u = -2, v = 3, kappa = 0") {
+        p.u = -2.;
+        p.v = 3.;
+        p.kappa = 0.;
+
+        expected_cell_factor = -71.;
+        expected_west_factor = 0.;
+        expected_east_factor = 36.;
+        expected_north_factor = 0.;
+        expected_south_factor = 36.;
+    }
+
+    SECTION("u = -2, v = 3, kappa = 1e-3") {
+        p.u = -2.;
+        p.v = 3.;
+        p.kappa = 1e-3;
+
+        expected_cell_factor = -71.026;
+        expected_west_factor = 9e-3;
+        expected_east_factor = 36.009;
+        expected_north_factor = 4e-3;
+        expected_south_factor = 36.004;
+    }
+
+    SECTION("u = -2, v = 3, kappa = 1") {
+        p.u = -2.;
+        p.v = 3.;
+        p.kappa = 1.;
+
+        expected_cell_factor = -97.;
+        expected_west_factor = 9.;
+        expected_east_factor = 45.;
+        expected_north_factor = 4.;
+        expected_south_factor = 40.;
+    }
+
+    SECTION("u = -2, v = 3, kappa = 2") {
+        p.u = -2.;
+        p.v = 3.;
+        p.kappa = 2.;
+
+        expected_cell_factor = -123.;
+        expected_west_factor = 18.;
+        expected_east_factor = 54.;
+        expected_north_factor = 8.;
+        expected_south_factor = 44.;
+    }
+
+    SECTION("u = 0, v = -3, kappa = 0") {
+        p.u = 0.;
+        p.v = -3.;
+        p.kappa = 0.;
+
+        expected_cell_factor = -35.;
+        expected_west_factor = 0.;
+        expected_east_factor = 0.;
+        expected_north_factor = 36.;
+        expected_south_factor = 0.;
+    }
+
+    SECTION("u = 0, v = -3, kappa = 1e-3") {
+        p.u = 0.;
+        p.v = -3.;
+        p.kappa = 1e-3;
+
+        expected_cell_factor = -35.026;
+        expected_west_factor = 9e-3;
+        expected_east_factor = 9e-3;
+        expected_north_factor = 36.004;
+        expected_south_factor = 4e-3;
+    }
+
+    SECTION("u = 0, v = -3, kappa = 1") {
+        p.u = 0.;
+        p.v = -3.;
+        p.kappa = 1.;
+
+        expected_cell_factor = -61.;
+        expected_west_factor = 9.;
+        expected_east_factor = 9.;
+        expected_north_factor = 40.;
+        expected_south_factor = 4.;
+    }
+
+    SECTION("u = 0, v = -3, kappa = 2") {
+        p.u = 0.;
+        p.v = -3.;
+        p.kappa = 2.;
+
+        expected_cell_factor = -87.;
+        expected_west_factor = 18.;
+        expected_east_factor = 18.;
+        expected_north_factor = 44.;
+        expected_south_factor = 8.;
+    }
+
+    SECTION("u = 0, v = 0, kappa = 0") {
+        p.u = 0.;
+        p.v = 0.;
+        p.kappa = 0.;
+
+        expected_cell_factor = 1.;
+        expected_west_factor = 0.;
+        expected_east_factor = 0.;
+        expected_north_factor = 0.;
+        expected_south_factor = 0.;
+    }
+
+    SECTION("u = 0, v = 0, kappa = 1e-3") {
+        p.u = 0.;
+        p.v = 0.;
+        p.kappa = 1e-3;
+
+        expected_cell_factor = .974;
+        expected_west_factor = 9e-3;
+        expected_east_factor = 9e-3;
+        expected_north_factor = 4e-3;
+        expected_south_factor = 4e-3;
+    }
+
+    SECTION("u = 0, v = 0, kappa = 1") {
+        p.u = 0.;
+        p.v = 0.;
+        p.kappa = 1.;
+
+        expected_cell_factor = -25.;
+        expected_west_factor = 9.;
+        expected_east_factor = 9.;
+        expected_north_factor = 4.;
+        expected_south_factor = 4.;
+    }
+
+    SECTION("u = 0, v = 0, kappa = 2") {
+        p.u = 0.;
+        p.v = 0.;
+        p.kappa = 2.;
+
+        expected_cell_factor = -51.;
+        expected_west_factor = 18.;
+        expected_east_factor = 18.;
+        expected_north_factor = 8.;
+        expected_south_factor = 8.;
+    }
+
+    SECTION("u = 0, v = 3, kappa = 0") {
+        p.u = 0.;
+        p.v = 3.;
+        p.kappa = 0.;
+
+        expected_cell_factor = -35.;
+        expected_west_factor = 0.;
+        expected_east_factor = 0.;
+        expected_north_factor = 0.;
+        expected_south_factor = 36.;
+    }
+
+    SECTION("u = 0, v = 3, kappa = 1e-3") {
+        p.u = 0.;
+        p.v = 3.;
+        p.kappa = 1e-3;
+
+        expected_cell_factor = -35.026;
+        expected_west_factor = 9e-3;
+        expected_east_factor = 9e-3;
+        expected_north_factor = 4e-3;
+        expected_south_factor = 36.004;
+    }
+
+    SECTION("u = 0, v = 3, kappa = 1") {
+        p.u = 0.;
+        p.v = 3.;
+        p.kappa = 1.;
+
+        expected_cell_factor = -61.;
+        expected_west_factor = 9.;
+        expected_east_factor = 9.;
+        expected_north_factor = 4.;
+        expected_south_factor = 40.;
+    }
+
+    SECTION("u = 0, v = 3, kappa = 2") {
+        p.u = 0.;
+        p.v = 3.;
+        p.kappa = 2.;
+
+        expected_cell_factor = -87.;
+        expected_west_factor = 18.;
+        expected_east_factor = 18.;
+        expected_north_factor = 8.;
+        expected_south_factor = 44.;
+    }
+
+    SECTION("u = 2, v = -3, kappa = 0") {
+        p.u = 2.;
+        p.v = -3.;
+        p.kappa = 0.;
+
+        expected_cell_factor = -71.;
+        expected_west_factor = 36.;
+        expected_east_factor = 0.;
+        expected_north_factor = 36.;
+        expected_south_factor = 0.;
+    }
+
+    SECTION("u = 2, v = -3, kappa = 1e-3") {
+        p.u = 2.;
+        p.v = -3.;
+        p.kappa = 1e-3;
+
+        expected_cell_factor = -71.026;
+        expected_west_factor = 36.009;
+        expected_east_factor = 9e-3;
+        expected_north_factor = 36.004;
+        expected_south_factor = 4e-3;
+    }
+
+    SECTION("u = 2, v = -3, kappa = 1") {
+        p.u = 2.;
+        p.v = -3.;
+        p.kappa = 1.;
+
+        expected_cell_factor = -97.;
+        expected_west_factor = 45.;
+        expected_east_factor = 9.;
+        expected_north_factor = 40.;
+        expected_south_factor = 4.;
+    }
+
+    SECTION("u = 2, v = -3, kappa = 2") {
+        p.u = 2.;
+        p.v = -3.;
+        p.kappa = 2.;
+
+        expected_cell_factor = -123.;
+        expected_west_factor = 54.;
+        expected_east_factor = 18.;
+        expected_north_factor = 44.;
+        expected_south_factor = 8.;
+    }
+
+    SECTION("u = 2, v = 0, kappa = 0") {
+        p.u = 2.;
+        p.v = 0.;
+        p.kappa = 0.;
+
+        expected_cell_factor = -35.;
+        expected_west_factor = 36.;
+        expected_east_factor = 0.;
+        expected_north_factor = 0.;
+        expected_south_factor = 0.;
+    }
+
+    SECTION("u = 2, v = 0, kappa = 1e-3") {
+        p.u = 2.;
+        p.v = 0.;
+        p.kappa = 1e-3;
+
+        expected_cell_factor = -35.026;
+        expected_west_factor = 36.009;
+        expected_east_factor = 9e-3;
+        expected_north_factor = 4e-3;
+        expected_south_factor = 4e-3;
+    }
+
+    SECTION("u = 2, v = 0, kappa = 1") {
+        p.u = 2.;
+        p.v = 0.;
+        p.kappa = 1.;
+
+        expected_cell_factor = -61.;
+        expected_west_factor = 45.;
+        expected_east_factor = 9.;
+        expected_north_factor = 4.;
+        expected_south_factor = 4.;
+    }
+
+    SECTION("u = 2, v = 0, kappa = 2") {
+        p.u = 2.;
+        p.v = 0.;
+        p.kappa = 2.;
+
+        expected_cell_factor = -87.;
+        expected_west_factor = 54.;
+        expected_east_factor = 18.;
+        expected_north_factor = 8.;
+        expected_south_factor = 8.;
+    }
+
+    SECTION("u = 2, v = 3, kappa = 0") {
+        p.u = 2.;
+        p.v = 3.;
+        p.kappa = 0.;
+
+        expected_cell_factor = -71.;
+        expected_west_factor = 36.;
+        expected_east_factor = 0.;
+        expected_north_factor = 0.;
+        expected_south_factor = 36.;
+    }
+
+    SECTION("u = 2, v = 3, kappa = 1e-3") {
+        p.u = 2.;
+        p.v = 3.;
+        p.kappa = 1e-3;
+
+        expected_cell_factor = -71.026;
+        expected_west_factor = 36.009;
+        expected_east_factor = 9e-3;
+        expected_north_factor = 4e-3;
+        expected_south_factor = 36.004;
+    }
+
+    SECTION("u = 2, v = 3, kappa = 1") {
+        p.u = 2.;
+        p.v = 3.;
+        p.kappa = 1.;
+
+        expected_cell_factor = -97.;
+        expected_west_factor = 45.;
+        expected_east_factor = 9.;
+        expected_north_factor = 4.;
+        expected_south_factor = 40.;
+    }
+
+    SECTION("u = 2, v = 3, kappa = 2") {
+        p.u = 2.;
+        p.v = 3.;
+        p.kappa = 2.;
+
+        expected_cell_factor = -123.;
+        expected_west_factor = 54.;
+        expected_east_factor = 18.;
+        expected_north_factor = 8.;
+        expected_south_factor = 44.;
+    }
+
+    CAPTURE(p.u, p.v, p.kappa);
+
+    const advdiff::details::Constants constants{g, p, dt};
+
+    REQUIRE_THAT(expected_cell_factor, Catch::Matchers::WithinRel(expected_cell_factor));
+    REQUIRE_THAT(expected_west_factor, Catch::Matchers::WithinRel(expected_west_factor));
+    REQUIRE_THAT(expected_east_factor, Catch::Matchers::WithinRel(expected_east_factor));
+    REQUIRE_THAT(expected_south_factor, Catch::Matchers::WithinRel(expected_south_factor));
+    REQUIRE_THAT(expected_north_factor, Catch::Matchers::WithinRel(expected_north_factor));
+}
+
+TEST_CASE("step_naive for specific fields") {
     const auto rows = 3;
     const auto cols = 4;
     advdiff::Physics p;
@@ -313,7 +774,415 @@ TEST_CASE("step_seq for specific fields") {
     advdiff::Field c_new{g.nx, g.ny};
 
     advdiff::apply_periodic_bc(c);
-    advdiff::step_seq(c, c_new, g, p, dt);
+    advdiff::step_naive(c, c_new, g, p, dt);
+
+    for (int j = 0; j < g.ny ; ++j) {
+        for (int i = 0; i < g.nx ; ++i) {
+            REQUIRE_THAT(c_new(i, j),  Catch::Matchers::WithinRel(c_expected(i, j)));
+        }
+    }
+}
+
+TEST_CASE("step_weighted for specific fields") {
+    const auto rows = 3;
+    const auto cols = 4;
+    advdiff::Physics p;
+    p.kappa = 1.;
+
+    advdiff::Grid g;
+    g.nx = cols;
+    g.ny = rows;
+    g.lx = cols; // dx = 1.
+    g.ly = 2. * rows; // dy = 2.
+
+    const auto dt = 1.;
+
+    advdiff::Field c{g.nx, g.ny};
+    c(0, 0) = 1.;
+    c(1, 0) = -5.;
+    c(2, 0) = 13.;
+    c(3, 0) = 17.;
+    c(0, 1) = -12.;
+    c(1, 1) = 8.;
+    c(2, 1) = -3.;
+    c(3, 1) = -4.;
+    c(0, 2) = -19.;
+    c(1, 2) = 2.;
+    c(2, 2) = 2.;
+    c(3, 2) = -4.;
+
+    advdiff::Field c_expected{g.nx, g.ny};
+
+    SECTION("u > 0 and v > 0") {
+        p.u = 1.;
+        p.v = 3.;
+
+        c_expected(0, 0) = -11.25;
+        c_expected(1, 0) = 40.5;
+        c_expected(2, 0) = -42.25;
+        c_expected(3, 0) = -49.0;
+        c_expected(0, 1) = 45.0;
+        c_expected(1, 1) = -67.25;
+        c_expected(2, 1) = 47.25;
+        c_expected(3, 1) = 26.75;
+        c_expected(0, 2) = 49.25;
+        c_expected(1, 2) = -31.25;
+        c_expected(2, 2) = -10.0;
+        c_expected(3, 2) = -1.75;
+    }
+
+    SECTION("u > 0 and v = 0") {
+        p.u = 1.;
+        p.v = 0.;
+
+        c_expected(0, 0) = 18.75;
+        c_expected(1, 0) = 30.0;
+        c_expected(2, 0) = -25.75;
+        c_expected(3, 0) = -17.5;
+        c_expected(0, 1) = 25.5;
+        c_expected(1, 1) = -47.75;
+        c_expected(2, 1) = 23.25;
+        c_expected(3, 1) = -4.75;
+        c_expected(0, 2) = 38.75;
+        c_expected(1, 2) = -40.25;
+        c_expected(2, 2) = -2.5;
+        c_expected(3, 2) = -1.75;
+    }
+
+    SECTION("u > 0 and v < 0") {
+        p.u = 1.;
+        p.v = -3.;
+
+        c_expected(0, 0) = -0.75;
+        c_expected(1, 0) = 49.5;
+        c_expected(2, 0) = -49.75;
+        c_expected(3, 0) = -49.0;
+        c_expected(0, 1) = 15.0;
+        c_expected(1, 1) = -56.75;
+        c_expected(2, 1) = 30.75;
+        c_expected(3, 1) = -4.75;
+        c_expected(0, 2) = 68.75;
+        c_expected(1, 2) = -50.75;
+        c_expected(2, 2) = 14.0;
+        c_expected(3, 2) = 29.75;
+    }
+
+    SECTION("u = 0 and v > 0") {
+        p.u = 0.;
+        p.v = 3.;
+
+        c_expected(0, 0) = -27.25;
+        c_expected(1, 0) = 34.5;
+        c_expected(2, 0) = -24.25;
+        c_expected(3, 0) = -45.0;
+        c_expected(0, 1) = 37.0;
+        c_expected(1, 1) = -47.25;
+        c_expected(2, 1) = 36.25;
+        c_expected(3, 1) = 25.75;
+        c_expected(0, 2) = 34.25;
+        c_expected(1, 2) = -10.25;
+        c_expected(2, 2) = -10.0;
+        c_expected(3, 2) = -7.75;
+    }
+
+    SECTION("u = 0 and v = 0") {
+        p.u = 0.;
+        p.v = 0.;
+
+        c_expected(0, 0) = 2.75;
+        c_expected(1, 0) = 24.0;
+        c_expected(2, 0) = -7.75;
+        c_expected(3, 0) = -13.5;
+        c_expected(0, 1) = 17.5;
+        c_expected(1, 1) = -27.75;
+        c_expected(2, 1) = 12.25;
+        c_expected(3, 1) = -5.75;
+        c_expected(0, 2) = 23.75;
+        c_expected(1, 2) = -19.25;
+        c_expected(2, 2) = -2.5;
+        c_expected(3, 2) = -7.75;
+    }
+
+    SECTION("u = 0 and v < 0") {
+        p.u = 0.;
+        p.v = -3.;
+
+        c_expected(0, 0) = -16.75;
+        c_expected(1, 0) = 43.5;
+        c_expected(2, 0) = -31.75;
+        c_expected(3, 0) = -45.0;
+        c_expected(0, 1) = 7.0;
+        c_expected(1, 1) = -36.75;
+        c_expected(2, 1) = 19.75;
+        c_expected(3, 1) = -5.75;
+        c_expected(0, 2) = 53.75;
+        c_expected(1, 2) = -29.75;
+        c_expected(2, 2) = 14.0;
+        c_expected(3, 2) = 23.75;
+    }
+
+    SECTION("u < 0 and v > 0") {
+        p.u = -1.;
+        p.v = 3.;
+
+        c_expected(0, 0) = -33.25;
+        c_expected(1, 0) = 52.5;
+        c_expected(2, 0) = -20.25;
+        c_expected(3, 0) = -61.0;
+        c_expected(0, 1) = 57.0;
+        c_expected(1, 1) = -58.25;
+        c_expected(2, 1) = 35.25;
+        c_expected(3, 1) = 17.75;
+        c_expected(0, 2) = 55.25;
+        c_expected(1, 2) = -10.25;
+        c_expected(2, 2) = -16.0;
+        c_expected(3, 2) = -22.75;
+    }
+
+    SECTION("u < 0 and v = 0") {
+        p.u = -1.;
+        p.v = 0.;
+
+        c_expected(0, 0) = -3.25;
+        c_expected(1, 0) = 42.0;
+        c_expected(2, 0) = -3.75;
+        c_expected(3, 0) = -29.5;
+        c_expected(0, 1) = 37.5;
+        c_expected(1, 1) = -38.75;
+        c_expected(2, 1) = 11.25;
+        c_expected(3, 1) = -13.75;
+        c_expected(0, 2) = 44.75;
+        c_expected(1, 2) = -19.25;
+        c_expected(2, 2) = -8.5;
+        c_expected(3, 2) = -22.75;
+    }
+
+    SECTION("u < 0 and v < 0") {
+        p.u = -1.;
+        p.v = -3.;
+
+        c_expected(0, 0) = -22.75;
+        c_expected(1, 0) = 61.5;
+        c_expected(2, 0) = -27.75;
+        c_expected(3, 0) = -61.0;
+        c_expected(0, 1) = 27.0;
+        c_expected(1, 1) = -47.75;
+        c_expected(2, 1) = 18.75;
+        c_expected(3, 1) = -13.75;
+        c_expected(0, 2) = 74.75;
+        c_expected(1, 2) = -29.75;
+        c_expected(2, 2) = 8.0;
+        c_expected(3, 2) = 8.75;
+    }
+
+    advdiff::Field c_new{g.nx, g.ny};
+
+    advdiff::apply_periodic_bc(c);
+    advdiff::step_weighted(c, c_new, g, p, dt);
+
+    for (int j = 0; j < g.ny ; ++j) {
+        for (int i = 0; i < g.nx ; ++i) {
+            REQUIRE_THAT(c_new(i, j),  Catch::Matchers::WithinRel(c_expected(i, j)));
+        }
+    }
+}
+
+TEST_CASE("step_incremental for specific fields") {
+    const auto rows = 3;
+    const auto cols = 4;
+    advdiff::Physics p;
+    p.kappa = 1.;
+
+    advdiff::Grid g;
+    g.nx = cols;
+    g.ny = rows;
+    g.lx = cols; // dx = 1.
+    g.ly = 2. * rows; // dy = 2.
+
+    const auto dt = 1.;
+
+    advdiff::Field c{g.nx, g.ny};
+    c(0, 0) = 1.;
+    c(1, 0) = -5.;
+    c(2, 0) = 13.;
+    c(3, 0) = 17.;
+    c(0, 1) = -12.;
+    c(1, 1) = 8.;
+    c(2, 1) = -3.;
+    c(3, 1) = -4.;
+    c(0, 2) = -19.;
+    c(1, 2) = 2.;
+    c(2, 2) = 2.;
+    c(3, 2) = -4.;
+
+    advdiff::Field c_expected{g.nx, g.ny};
+
+    SECTION("u > 0 and v > 0") {
+        p.u = 1.;
+        p.v = 3.;
+
+        c_expected(0, 0) = -11.25;
+        c_expected(1, 0) = 40.5;
+        c_expected(2, 0) = -42.25;
+        c_expected(3, 0) = -49.0;
+        c_expected(0, 1) = 45.0;
+        c_expected(1, 1) = -67.25;
+        c_expected(2, 1) = 47.25;
+        c_expected(3, 1) = 26.75;
+        c_expected(0, 2) = 49.25;
+        c_expected(1, 2) = -31.25;
+        c_expected(2, 2) = -10.0;
+        c_expected(3, 2) = -1.75;
+    }
+
+    SECTION("u > 0 and v = 0") {
+        p.u = 1.;
+        p.v = 0.;
+
+        c_expected(0, 0) = 18.75;
+        c_expected(1, 0) = 30.0;
+        c_expected(2, 0) = -25.75;
+        c_expected(3, 0) = -17.5;
+        c_expected(0, 1) = 25.5;
+        c_expected(1, 1) = -47.75;
+        c_expected(2, 1) = 23.25;
+        c_expected(3, 1) = -4.75;
+        c_expected(0, 2) = 38.75;
+        c_expected(1, 2) = -40.25;
+        c_expected(2, 2) = -2.5;
+        c_expected(3, 2) = -1.75;
+    }
+
+    SECTION("u > 0 and v < 0") {
+        p.u = 1.;
+        p.v = -3.;
+
+        c_expected(0, 0) = -0.75;
+        c_expected(1, 0) = 49.5;
+        c_expected(2, 0) = -49.75;
+        c_expected(3, 0) = -49.0;
+        c_expected(0, 1) = 15.0;
+        c_expected(1, 1) = -56.75;
+        c_expected(2, 1) = 30.75;
+        c_expected(3, 1) = -4.75;
+        c_expected(0, 2) = 68.75;
+        c_expected(1, 2) = -50.75;
+        c_expected(2, 2) = 14.0;
+        c_expected(3, 2) = 29.75;
+    }
+
+    SECTION("u = 0 and v > 0") {
+        p.u = 0.;
+        p.v = 3.;
+
+        c_expected(0, 0) = -27.25;
+        c_expected(1, 0) = 34.5;
+        c_expected(2, 0) = -24.25;
+        c_expected(3, 0) = -45.0;
+        c_expected(0, 1) = 37.0;
+        c_expected(1, 1) = -47.25;
+        c_expected(2, 1) = 36.25;
+        c_expected(3, 1) = 25.75;
+        c_expected(0, 2) = 34.25;
+        c_expected(1, 2) = -10.25;
+        c_expected(2, 2) = -10.0;
+        c_expected(3, 2) = -7.75;
+    }
+
+    SECTION("u = 0 and v = 0") {
+        p.u = 0.;
+        p.v = 0.;
+
+        c_expected(0, 0) = 2.75;
+        c_expected(1, 0) = 24.0;
+        c_expected(2, 0) = -7.75;
+        c_expected(3, 0) = -13.5;
+        c_expected(0, 1) = 17.5;
+        c_expected(1, 1) = -27.75;
+        c_expected(2, 1) = 12.25;
+        c_expected(3, 1) = -5.75;
+        c_expected(0, 2) = 23.75;
+        c_expected(1, 2) = -19.25;
+        c_expected(2, 2) = -2.5;
+        c_expected(3, 2) = -7.75;
+    }
+
+    SECTION("u = 0 and v < 0") {
+        p.u = 0.;
+        p.v = -3.;
+
+        c_expected(0, 0) = -16.75;
+        c_expected(1, 0) = 43.5;
+        c_expected(2, 0) = -31.75;
+        c_expected(3, 0) = -45.0;
+        c_expected(0, 1) = 7.0;
+        c_expected(1, 1) = -36.75;
+        c_expected(2, 1) = 19.75;
+        c_expected(3, 1) = -5.75;
+        c_expected(0, 2) = 53.75;
+        c_expected(1, 2) = -29.75;
+        c_expected(2, 2) = 14.0;
+        c_expected(3, 2) = 23.75;
+    }
+
+    SECTION("u < 0 and v > 0") {
+        p.u = -1.;
+        p.v = 3.;
+
+        c_expected(0, 0) = -33.25;
+        c_expected(1, 0) = 52.5;
+        c_expected(2, 0) = -20.25;
+        c_expected(3, 0) = -61.0;
+        c_expected(0, 1) = 57.0;
+        c_expected(1, 1) = -58.25;
+        c_expected(2, 1) = 35.25;
+        c_expected(3, 1) = 17.75;
+        c_expected(0, 2) = 55.25;
+        c_expected(1, 2) = -10.25;
+        c_expected(2, 2) = -16.0;
+        c_expected(3, 2) = -22.75;
+    }
+
+    SECTION("u < 0 and v = 0") {
+        p.u = -1.;
+        p.v = 0.;
+
+        c_expected(0, 0) = -3.25;
+        c_expected(1, 0) = 42.0;
+        c_expected(2, 0) = -3.75;
+        c_expected(3, 0) = -29.5;
+        c_expected(0, 1) = 37.5;
+        c_expected(1, 1) = -38.75;
+        c_expected(2, 1) = 11.25;
+        c_expected(3, 1) = -13.75;
+        c_expected(0, 2) = 44.75;
+        c_expected(1, 2) = -19.25;
+        c_expected(2, 2) = -8.5;
+        c_expected(3, 2) = -22.75;
+    }
+
+    SECTION("u < 0 and v < 0") {
+        p.u = -1.;
+        p.v = -3.;
+
+        c_expected(0, 0) = -22.75;
+        c_expected(1, 0) = 61.5;
+        c_expected(2, 0) = -27.75;
+        c_expected(3, 0) = -61.0;
+        c_expected(0, 1) = 27.0;
+        c_expected(1, 1) = -47.75;
+        c_expected(2, 1) = 18.75;
+        c_expected(3, 1) = -13.75;
+        c_expected(0, 2) = 74.75;
+        c_expected(1, 2) = -29.75;
+        c_expected(2, 2) = 8.0;
+        c_expected(3, 2) = 8.75;
+    }
+
+    advdiff::Field c_new{g.nx, g.ny};
+
+    advdiff::apply_periodic_bc(c);
+    advdiff::step_incremental(c, c_new, g, p, dt);
 
     for (int j = 0; j < g.ny ; ++j) {
         for (int i = 0; i < g.nx ; ++i) {
@@ -335,7 +1204,7 @@ double uniform(std::mt19937& rng, double lo, double hi) {
 
 } // namespace
 
-TEST_CASE("Applying step_seq matches the naive implementation", "[kernel]") {
+TEST_CASE("Applying step_naive matches the naive implementation", "[kernel]") {
     const auto rows = GENERATE(1, 2, 3, 17, 64);
     const auto cols = GENERATE(1, 2, 3, 31);
     const auto rep = GENERATE(range(0, 5));
@@ -366,12 +1235,108 @@ TEST_CASE("Applying step_seq matches the naive implementation", "[kernel]") {
     advdiff::Field c_new{g.nx, g.ny};
 
     advdiff::apply_periodic_bc(c);
-    advdiff::step_seq(c, c_new, g, p, dt);
+    advdiff::step_naive(c, c_new, g, p, dt);
 
     for (int j = 0; j < g.ny; ++j) {
         for (int i = 0; i < g.nx; ++i) {
-            double expected = advdiff::details::advdiff_kernel(c(i, j), c(i - 1, j), c(i + 1, j), c(i, j - 1), c(i, j + 1), g, p, dt);
+            double expected = advdiff::details::advdiff_kernel_naive(c(i, j), c(i - 1, j), c(i + 1, j), c(i, j - 1), c(i, j + 1), g, p, dt);
             REQUIRE_THAT(c_new(i, j), Catch::Matchers::WithinRel(expected));
+        }
+    }
+}
+
+TEST_CASE("Applying step_weighted matches the naive implementation", "[kernel]") {
+    const auto rows = GENERATE(1, 2, 3, 17, 64);
+    const auto cols = GENERATE(1, 2, 3, 31);
+    const auto rep = GENERATE(range(0, 5));
+
+    const auto seed = Catch::getSeed() + static_cast<std::uint32_t>(rows * 1000003u + cols * 1009u + rep);
+    CAPTURE(rows, cols, rep, seed);
+
+    std::mt19937 rng(seed);
+
+    advdiff::Physics p;
+    p.u = 2.5;
+    p.v = 1.3;
+    p.kappa = 0.6;
+
+    advdiff::Grid g;
+    g.nx = cols;
+    g.ny = rows;
+
+    const auto dt = 0.5;
+
+    advdiff::Field c{g.nx, g.ny};
+    for (int j = 0; j < g.ny; ++j) {
+        for (int i = 0; i < g.nx; ++i) {
+            c(i, j) = uniform(rng, -100., 100.);
+        }
+    }
+
+    advdiff::Field c_new{g.nx, g.ny};
+
+    advdiff::apply_periodic_bc(c);
+    advdiff::step_weighted(c, c_new, g, p, dt);
+
+    for (int j = 0; j < g.ny; ++j) {
+        for (int i = 0; i < g.nx; ++i) {
+            double expected = advdiff::details::advdiff_kernel_naive(c(i, j), c(i - 1, j), c(i + 1, j), c(i, j - 1), c(i, j + 1), g, p, dt);
+            const advdiff::details::Constants k{g, p, dt};
+            const double scale = std::abs(k.kernel_cell_factor  * c(i, j))
+                   + std::abs(k.kernel_west_factor  * c(i - 1, j))
+                   + std::abs(k.kernel_east_factor  * c(i + 1, j))
+                   + std::abs(k.kernel_south_factor * c(i, j - 1))
+                   + std::abs(k.kernel_north_factor * c(i, j + 1));
+            const double tolerance = 16 * std::numeric_limits<double>::epsilon() * scale;
+            REQUIRE_THAT(c_new(i, j), Catch::Matchers::WithinAbs(expected, tolerance));
+        }
+    }
+}
+
+TEST_CASE("Applying step_incremental matches the naive implementation", "[kernel]") {
+    const auto rows = GENERATE(1, 2, 3, 17, 64);
+    const auto cols = GENERATE(1, 2, 3, 31);
+    const auto rep = GENERATE(range(0, 5));
+
+    const auto seed = Catch::getSeed() + static_cast<std::uint32_t>(rows * 1000003u + cols * 1009u + rep);
+    CAPTURE(rows, cols, rep, seed);
+
+    std::mt19937 rng(seed);
+
+    advdiff::Physics p;
+    p.u = 2.5;
+    p.v = 1.3;
+    p.kappa = 0.6;
+
+    advdiff::Grid g;
+    g.nx = cols;
+    g.ny = rows;
+
+    const auto dt = 0.5;
+
+    advdiff::Field c{g.nx, g.ny};
+    for (int j = 0; j < g.ny; ++j) {
+        for (int i = 0; i < g.nx; ++i) {
+            c(i, j) = uniform(rng, -100., 100.);
+        }
+    }
+
+    advdiff::Field c_new{g.nx, g.ny};
+
+    advdiff::apply_periodic_bc(c);
+    advdiff::step_incremental(c, c_new, g, p, dt);
+
+    for (int j = 0; j < g.ny; ++j) {
+        for (int i = 0; i < g.nx; ++i) {
+            double expected = advdiff::details::advdiff_kernel_naive(c(i, j), c(i - 1, j), c(i + 1, j), c(i, j - 1), c(i, j + 1), g, p, dt);
+            const advdiff::details::Constants k{g, p, dt};
+            const double scale = std::abs(k.kernel_cell_factor  * c(i, j))
+                   + std::abs(k.kernel_west_factor  * c(i - 1, j))
+                   + std::abs(k.kernel_east_factor  * c(i + 1, j))
+                   + std::abs(k.kernel_south_factor * c(i, j - 1))
+                   + std::abs(k.kernel_north_factor * c(i, j + 1));
+            const double tolerance = 16 * std::numeric_limits<double>::epsilon() * scale;
+            REQUIRE_THAT(c_new(i, j), Catch::Matchers::WithinAbs(expected, tolerance));
         }
     }
 }
@@ -417,7 +1382,7 @@ double compute_dt_from_S(const advdiff::Grid& g, const advdiff::Physics& p, doub
 
 } // namespace
 
-TEST_CASE("A uniform field is unchanged", "[kernel]") {
+TEST_CASE("A uniform field is unchanged with step_weighted", "[kernel]") {
     const auto rows = 64;
     const auto cols = 31;
     const auto c_value = GENERATE(-5., -1e-3, 0., 1e-3, 5.);
@@ -452,7 +1417,51 @@ TEST_CASE("A uniform field is unchanged", "[kernel]") {
     advdiff::Field c_new{g.nx, g.ny};
 
     advdiff::apply_periodic_bc(c);
-    advdiff::step_seq(c, c_new, g, p, dt);
+    advdiff::step_weighted(c, c_new, g, p, dt);
+
+    for (int j = 0; j < g.ny; ++j) {
+        for (int i = 0; i < g.nx; ++i) {
+            REQUIRE_THAT(c_new(i, j), Catch::Matchers::WithinRel(c_value));
+        }
+    }
+}
+
+TEST_CASE("A uniform field is unchanged with step_incremental", "[kernel]") {
+    const auto rows = 64;
+    const auto cols = 31;
+    const auto c_value = GENERATE(-5., -1e-3, 0., 1e-3, 5.);
+
+    advdiff::Physics p;
+    p.u = GENERATE(-13., 0., 5.7);
+    p.v = GENERATE(-13., 0., 5.7);
+    p.kappa = GENERATE(0., 0.5, 13.);
+
+    advdiff::Grid g;
+    g.nx = cols;
+    g.ny = rows;
+
+    // u, v, and kappa maximum absolute value is 13
+    // In order for S to be less or equal to 1, dt must be sufficiently low.
+    const auto max_dt = p.u == 0. and p.v == 0. and p.kappa == 0. ?
+                            1e-3 :
+                            compute_dt_from_S(g, p, 1.);
+    const auto dt = GENERATE_COPY(max_dt/100., max_dt/10., max_dt);
+
+    double s = advdiff::stability_number(g, p, dt);
+
+    CAPTURE(rows, cols, c_value, p.u, p.v, p.kappa, dt, s);
+
+    advdiff::Field c{g.nx, g.ny};
+    for (int j = 0; j < g.ny; ++j) {
+        for (int i = 0; i < g.nx; ++i) {
+            c(i, j) = c_value;
+        }
+    }
+
+    advdiff::Field c_new{g.nx, g.ny};
+
+    advdiff::apply_periodic_bc(c);
+    advdiff::step_incremental(c, c_new, g, p, dt);
 
     for (int j = 0; j < g.ny; ++j) {
         for (int i = 0; i < g.nx; ++i) {
@@ -498,7 +1507,7 @@ struct Gaussian {
 
 } // namespace
 
-TEST_CASE("Total mass is conserved", "[kernel]") {
+TEST_CASE("Total mass is conserved by step_weighted", "[kernel]") {
     const auto rows = 64;
     const auto cols = 31;
 
@@ -540,7 +1549,56 @@ TEST_CASE("Total mass is conserved", "[kernel]") {
 
     for (int step = 0; step < nb_step ; ++step) {
         advdiff::apply_periodic_bc(c);
-        advdiff::step_seq(c, c_new, g, p, dt);
+        advdiff::step_weighted(c, c_new, g, p, dt);
+        std::swap(c, c_new);
+    }
+
+    REQUIRE_THAT(advdiff::total_mass(c, g), Catch::Matchers::WithinRel(expected_total_mass, 1e-12));
+}
+
+TEST_CASE("Total mass is conserved by step_incremental", "[kernel]") {
+    const auto rows = 64;
+    const auto cols = 31;
+
+    Gaussian gaussian{
+        .height = 12.5,
+        .mu_x = 0.325,
+        .mu_y = 0.87768,
+        .sigma_x = 0.1,
+        .sigma_y = 0.053
+    };
+
+    advdiff::Physics p;
+    p.u = GENERATE(-13., 5.7);
+    p.v = GENERATE(-13., 5.7);
+    p.kappa = GENERATE(0.5, 13.);
+
+    advdiff::Grid g;
+    g.nx = cols;
+    g.ny = rows;
+
+    const auto dt = compute_dt_from_S(g, p, 1.);
+
+    double s = advdiff::stability_number(g, p, dt);
+
+    CAPTURE(p.u, p.v, p.kappa, dt, s);
+
+    advdiff::Field c{g.nx, g.ny};
+    for (int j = 0; j < g.ny; ++j) {
+        for (int i = 0; i < g.nx; ++i) {
+            c(i, j) = gaussian.value(g.x(i), g.y(j));
+        }
+    }
+
+    advdiff::Field c_new{g.nx, g.ny};
+
+    const auto nb_step = 500;
+
+    const auto expected_total_mass = advdiff::total_mass(c, g);
+
+    for (int step = 0; step < nb_step ; ++step) {
+        advdiff::apply_periodic_bc(c);
+        advdiff::step_incremental(c, c_new, g, p, dt);
         std::swap(c, c_new);
     }
 
@@ -655,7 +1713,7 @@ TEST_CASE("field_min and field_max works") {
     REQUIRE_THAT(advdiff::field_max(c), Catch::Matchers::WithinRel(expected_max));
 }
 
-TEST_CASE("The discrete maximum principle holds when S <= 1", "[kernel]") {
+TEST_CASE("The discrete maximum principle holds when S <= 1 with step_weighted", "[kernel]") {
     const auto rows = 64;
     const auto cols = 31;
 
@@ -699,7 +1757,63 @@ TEST_CASE("The discrete maximum principle holds when S <= 1", "[kernel]") {
 
     for (int step = 0; step < nb_step ; ++step) {
         advdiff::apply_periodic_bc(c);
-        advdiff::step_seq(c, c_new, g, p, dt);
+        advdiff::step_weighted(c, c_new, g, p, dt);
+        std::swap(c, c_new);
+    }
+
+    const auto final_min_value = advdiff::field_min(c);
+    const auto final_max_value = advdiff::field_max(c);
+
+    REQUIRE(final_min_value <= final_max_value);
+    REQUIRE(final_min_value >= initial_min_value - 1e-14);
+    REQUIRE(final_max_value <= initial_max_value + 1e-14);
+}
+
+TEST_CASE("The discrete maximum principle holds when S <= 1 with step_incremental", "[kernel]") {
+    const auto rows = 64;
+    const auto cols = 31;
+
+    Gaussian gaussian{
+        .height = 12.5,
+        .mu_x = 0.325,
+        .mu_y = 0.87768,
+        .sigma_x = 0.1,
+        .sigma_y = 0.053
+    };
+
+    advdiff::Physics p;
+    p.u = GENERATE(-13., 5.7);
+    p.v = GENERATE(-13., 5.7);
+    p.kappa = GENERATE(0.5, 13.);
+
+    advdiff::Grid g;
+    g.nx = cols;
+    g.ny = rows;
+
+    const auto dt = compute_dt_from_S(g, p, 1.);
+
+    double s = advdiff::stability_number(g, p, dt);
+
+    CAPTURE(p.u, p.v, p.kappa, dt, s);
+
+    advdiff::Field c{g.nx, g.ny};
+    for (int j = 0; j < g.ny; ++j) {
+        for (int i = 0; i < g.nx; ++i) {
+            c(i, j) = gaussian.value(g.x(i), g.y(j));
+        }
+    }
+
+    advdiff::Field c_new{g.nx, g.ny};
+
+    const auto nb_step = 500;
+
+    const auto initial_min_value = advdiff::field_min(c);
+    const auto initial_max_value = advdiff::field_max(c);
+    REQUIRE(initial_min_value <= initial_max_value);
+
+    for (int step = 0; step < nb_step ; ++step) {
+        advdiff::apply_periodic_bc(c);
+        advdiff::step_incremental(c, c_new, g, p, dt);
         std::swap(c, c_new);
     }
 
@@ -726,7 +1840,15 @@ double rms_error(const advdiff::Field& c, const advdiff::Grid& g, double T, Exac
 }
 
 template <class ComputeDeltaT, class ExactSolutionFunction>
-double convergence_rms_error(int n, double u, double v, double kappa, double T, ComputeDeltaT&& dt_computer, ExactSolutionFunction&& exact_solution) {
+double convergence_rms_error(std::string_view kernel, int n, double u, double v, double kappa, double T,
+                             ComputeDeltaT&& dt_computer, ExactSolutionFunction&& exact_solution) {
+    auto kernel_function = [kernel](){
+        if (kernel == "weighted") {
+            return advdiff::step_weighted;
+        } else {
+            return advdiff::step_incremental;
+        }
+    }();
     advdiff::Physics p{
         .u = u,
         .v = v,
@@ -752,7 +1874,7 @@ double convergence_rms_error(int n, double u, double v, double kappa, double T, 
 
     for (int step = 0; step < nb_step ; ++step) {
         advdiff::apply_periodic_bc(c);
-        advdiff::step_seq(c, c_new, g, p, dt);
+        kernel_function(c, c_new, g, p, dt);
         std::swap(c, c_new);
     }
 
@@ -777,13 +1899,15 @@ TEST_CASE("Pure diffusion converges at second order", "[convergence]") {
         return 0.2 * g.dx() * g.dx() / p.kappa;
     };
 
-    const auto e_32 = convergence_rms_error(32, 0., 0., kappa, T, dt_computer, pure_diffusion_exact_solution);
-    const auto e_64 = convergence_rms_error(64, 0., 0., kappa, T, dt_computer, pure_diffusion_exact_solution);
-    const auto e_128 = convergence_rms_error(128, 0., 0., kappa, T, dt_computer, pure_diffusion_exact_solution);
+    auto kernel = GENERATE("weighted", "incremental");
+
+    const auto e_32 = convergence_rms_error(kernel, 32, 0., 0., kappa, T, dt_computer, pure_diffusion_exact_solution);
+    const auto e_64 = convergence_rms_error(kernel, 64, 0., 0., kappa, T, dt_computer, pure_diffusion_exact_solution);
+    const auto e_128 = convergence_rms_error(kernel, 128, 0., 0., kappa, T, dt_computer, pure_diffusion_exact_solution);
 
     const auto order_32_64 = std::log2(e_32 / e_64);
     const auto order_64_128 = std::log2(e_64 / e_128);
-    CAPTURE(e_32, e_64, e_128, order_32_64, order_64_128);
+    CAPTURE(kernel, e_32, e_64, e_128, order_32_64, order_64_128);
 
     REQUIRE_THAT(order_32_64, Catch::Matchers::WithinAbs(2., .2));
     REQUIRE_THAT(order_64_128, Catch::Matchers::WithinAbs(2., .2));
@@ -805,13 +1929,15 @@ TEST_CASE("Pure upwind advection converges at first order", "[convergence]") {
         return compute_dt_from_S(g, p, .5);
     };
 
-    const auto e_64 = convergence_rms_error(64, u, v, 0., T, dt_computer, pure_advection_exact_solution);
-    const auto e_128 = convergence_rms_error(128, u, v, 0., T, dt_computer, pure_advection_exact_solution);
-    const auto e_256 = convergence_rms_error(256, u, v, 0., T, dt_computer, pure_advection_exact_solution);
+    auto kernel = GENERATE("weighted", "incremental");
+
+    const auto e_64 = convergence_rms_error(kernel, 64, u, v, 0., T, dt_computer, pure_advection_exact_solution);
+    const auto e_128 = convergence_rms_error(kernel, 128, u, v, 0., T, dt_computer, pure_advection_exact_solution);
+    const auto e_256 = convergence_rms_error(kernel, 256, u, v, 0., T, dt_computer, pure_advection_exact_solution);
 
     const auto order_64_128 = std::log2(e_64 / e_128);
     const auto order_128_256 = std::log2(e_128 / e_256);
-    CAPTURE(e_64, e_128, e_256, order_64_128, order_128_256);
+    CAPTURE(kernel, e_64, e_128, e_256, order_64_128, order_128_256);
 
     REQUIRE_THAT(order_64_128, Catch::Matchers::WithinAbs(1., .1));
     REQUIRE_THAT(order_128_256, Catch::Matchers::WithinAbs(1., .1));

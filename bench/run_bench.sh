@@ -8,7 +8,7 @@
 #   -o DIR    root directory for results               (default: results)
 #   -l LABEL  machine label used in the output name    (default: short hostname)
 #   -s LIST   grid sizes n (n x n grid)                (default: "128 512 2048 4096")
-#   -k LIST   kernels passed as kernel=...             (default: "seq")
+#   -k LIST   kernels passed as kernel=...             (default: "incremental")
 #   -t LIST   values of OMP_NUM_THREADS                (default: "1")
 #   -r N      timed repetitions per configuration      (default: 7)
 #   -w N      untimed warm-up repetitions              (default: 1)
@@ -21,7 +21,7 @@ build_dir=build-release
 out_root=results
 label=$(hostname -s 2>/dev/null || echo unknown)
 sizes="128 512 2048 4096"
-kernels="seq"
+kernels="naive weighted incremental"
 threads_list="1"
 reps=7
 warmup=1
