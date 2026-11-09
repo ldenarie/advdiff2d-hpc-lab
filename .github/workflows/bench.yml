@@ -1,0 +1,62 @@
+name: Benchmark
+
+# Run manually from the Actions tab: benchmarks are slow and noisy, and only
+# results from one run (one machine) should be compared with each other.
+on:
+  workflow_dispatch:
+    inputs:
+      sizes:
+        description: "Grid sizes n (n x n)"
+        default: "128 512 2048 4096"
+      kernels:
+        description: "Kernels"
+        default: "seq"
+      threads:
+        description: "OMP_NUM_THREADS values"
+        default: "1"
+      reps:
+        description: "Timed repetitions per configuration"
+        default: "7"
+
+jobs:
+  bench:
+    runs-on: ubuntu-24.04
+    env:
+      SIZES: ${{ inputs.sizes }}
+      KERNELS: ${{ inputs.kernels }}
+      THREADS: ${{ inputs.threads }}
+      REPS: ${{ inputs.reps }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ninja-build python3-matplotlib
+
+      - name: Build (Release, no tests)
+        run: |
+          cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DADVDIFF_BUILD_TESTS=OFF
+          cmake --build build-release
+
+      - name: Run benchmarks
+        id: run
+        run: |
+          out_dir=$(bench/run_bench.sh -b build-release -l gha-ubuntu-24.04 \
+                      -s "$SIZES" -k "$KERNELS" -t "$THREADS" -r "$REPS")
+          echo "out_dir=$out_dir" >> "$GITHUB_OUTPUT"
+
+      - name: Plot and summarize
+        env:
+          OUT_DIR: ${{ steps.run.outputs.out_dir }}
+        run: |
+          python3 bench/plot.py size "$OUT_DIR/raw.csv"
+          if [ "$(wc -w <<< "$THREADS")" -gt 1 ]; then
+            python3 bench/plot.py threads "$OUT_DIR/raw.csv"
+          fi
+          cat "$OUT_DIR"/summary_*.md >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: bench-${{ github.run_id }}
+          path: results/
