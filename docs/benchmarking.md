@@ -7,12 +7,12 @@ How performance is measured, and what the numbers can and cannot say.
 `bench/run_bench.sh` calls the driver once per configuration and expects:
 
 ```sh
-advdiff2d kernel=seq nx=N ny=N steps=S reps=R warmup=W output=csv
+advdiff2d kernel=incremental nx=N ny=N steps=S reps=R warmup=W output=csv
 ```
 
 | Option | Meaning |
 |---|---|
-| `kernel` | kernel to run: `seq` for now; unknown values are an error |
+| `kernel` | kernel to run: `incremental` (default), `weighted` or `naive`; unknown values are an error |
 | `steps` | time steps in one repetition |
 | `reps` | number of timed repetitions |
 | `warmup` | number of untimed repetitions run before the timed ones |
@@ -23,7 +23,7 @@ per timed repetition, and nothing else (diagnostics go to standard error):
 
 ```
 kernel,nx,ny,steps,rep,time_s,mlups,mass_rel_err
-seq,512,512,763,0,0.4421,449.8,4.4e-16
+weighted,512,512,763,0,0.4421,449.8,4.4e-16
 ...
 ```
 
@@ -69,7 +69,7 @@ header and the number of lines.
   write-allocate read of `c_new`; neighbours are assumed to come from cache.
   It is a model, not a measurement, and is labelled as such.
 - **Speedup** S(p) = T(1) / T(p), and **efficiency** E(p) = S(p) / p, from
-  median times, against the same kernel on 1 thread (not against `seq`, unless
+  median times, against the same kernel on 1 thread (not against `weighted`, unless
   stated).
 
 ## 4. Limits of these measurements

@@ -19,20 +19,43 @@ void advdiff::apply_periodic_bc(Field& c) {
     }
 }
 
-void advdiff::step_seq(const Field& c, Field& c_new, const Grid& g, const Physics& p, double dt) {
+void advdiff::step_naive(const Field& c, Field& c_new, const Grid& g, const Physics& p, double dt) {
     for (int j = 0; j < g.ny; ++j) {
         for (int i = 0; i < g.nx; ++i) {
-            c_new(i, j) = details::advdiff_kernel(c(i, j), c(i - 1, j), c(i + 1, j), c(i, j - 1), c(i, j + 1), g, p, dt);
+            c_new(i, j) = details::advdiff_kernel_naive(c(i, j), c(i - 1, j), c(i + 1, j), c(i, j - 1), c(i, j + 1), g, p, dt);
+        }
+    }
+}
+
+void advdiff::step_weighted(const Field& c, Field& c_new, const Grid& g, const Physics& p, double dt) {
+    const details::Constants constants{g, p, dt};
+    for (int j = 0; j < g.ny; ++j) {
+        for (int i = 0; i < g.nx; ++i) {
+            c_new(i, j) = constants.kernel_cell_factor * c(i, j) +
+                          constants.kernel_west_factor * c(i - 1, j) +
+                          constants.kernel_east_factor * c(i + 1, j) +
+                          constants.kernel_south_factor * c(i, j - 1) +
+                          constants.kernel_north_factor * c(i, j + 1);
+        }
+    }
+}
+
+void advdiff::step_incremental(const Field& c, Field& c_new, const Grid& g, const Physics& p, double dt) {
+    const details::Constants constants{g, p, dt};
+    for (int j = 0; j < g.ny; ++j) {
+        for (int i = 0; i < g.nx; ++i) {
+            c_new(i, j) = c(i, j) +
+                          constants.kernel_west_factor * (c(i - 1, j) - c(i, j)) +
+                          constants.kernel_east_factor * (c(i + 1, j) - c(i, j)) +
+                          constants.kernel_south_factor * (c(i, j - 1) - c(i, j)) +
+                          constants.kernel_north_factor * (c(i, j + 1) - c(i, j));
         }
     }
 }
 
 double advdiff::stability_number(const Grid& g, const Physics& p, double dt) {
-    const double c_x = std::abs(p.u) * dt / g.dx();
-    const double c_y = std::abs(p.v) * dt / g.dy();
-    const double d_x = p.kappa * dt / (g.dx() * g.dx());
-    const double d_y = p.kappa * dt / (g.dy() * g.dy());
-    return c_x + c_y + 2 * d_x + 2 * d_y;
+    details::Constants constants{g, p, dt};
+    return constants.S;
 }
 
 double advdiff::total_mass(const Field& c, const Grid& g) {
