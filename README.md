@@ -26,7 +26,7 @@ programming (OpenMP, then MPI), vectorization and performance measurement.
 | Step | Status |
 |---|---|
 | Sequential kernel and tests | done |
-| Profiling | planned |
+| Profiling | done |
 | OpenMP | planned |
 | Vectorization | planned |
 | MPI (domain decomposition) | planned |
