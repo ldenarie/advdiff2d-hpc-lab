@@ -60,6 +60,13 @@ Dx = kappa dt / dx^2    Dy = kappa dt / dy^2
 S  = Cx + Cy + 2 Dx + 2 Dy          (stability number)
 ```
 
+Using these numbers, and when u and v are positive (for other cases, the formula
+is symmetrical), the update can be written as:
+
+```
+c_new(i,j) = (1-S) c(i,j) + (Cx+Dx) c(i-1,j) + Dx c(i+1,j) + (Cy+Dy) c(i,j-1) + Dy c(i,j+1)
+```
+
 Rewriting the update shows that `c_new(i,j)` is a weighted sum of `c(i,j)` and
 its four neighbours, with weights that sum to 1. The weight of `c(i,j)` is
 `1 - S`; all the others are non-negative. Therefore:
