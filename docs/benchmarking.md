@@ -52,8 +52,8 @@ header and the number of lines.
   about 2·10⁸ cell updates (tenths of a second to a few seconds), well above
   the clock resolution and the timer overhead.
 - **Grid sizes** cover the memory hierarchy: 128² (two fields ≈ 0.3 MB,
-  in L2), 512² (≈ 4 MB, around L2/L3), 2048² (≈ 67 MB) and 4096² (≈ 270 MB),
-  far above the last-level cache, in main memory.
+  in L2), 512² (≈ 4 MB, in L3 on current runners), 2048² (≈ 67 MB) and
+  4096² (≈ 270 MB), far above the last-level cache, in main memory.
 - **Test case.** Driver defaults: Gaussian of width 0.05 L centred in the
   domain, u = 1, v = 0.5, kappa = 1e-4, S = 0.9. The kernel is memory-bound
   and has no data-dependent branch, so its speed hardly depends on these
@@ -68,6 +68,17 @@ header and the number of lines.
   assumes the minimum traffic per cell: read `c`, write `c_new`, and the
   write-allocate read of `c_new`; neighbours are assumed to come from cache.
   It is a model, not a measurement, and is labelled as such.
+- **Main-memory ceiling.** Before the kernels, `run_bench.sh` runs
+  `bench/stream.cpp`, a mini-STREAM, once per thread count, in the same job.
+  Its `scale` kernel (`a[i] = s * b[i]`, on arrays far larger than the
+  last-level cache) has the same minimal traffic as one stencil update: read
+  one value, write one. Its best element rate (million elements per second)
+  is therefore the highest update rate, in MLUP/s, that a memory-bound stencil
+  can reach on grids that do not fit in cache. Results are given as a
+  percentage of it. Grids that fit in cache can exceed it: the ceiling only
+  bounds the main-memory regime. A plain copy is not used, because compilers
+  turn it into `memcpy`, which may bypass the cache with non-temporal stores
+  and avoid the write-allocate traffic that the stencil pays.
 - **Speedup** S(p) = T(1) / T(p), and **efficiency** E(p) = S(p) / p, from
   median times, against the same kernel on 1 thread (not against `weighted`, unless
   stated).
