@@ -2,7 +2,7 @@
 """Summarizes and plots benchmark results produced by bench/run_bench.sh.
 
 Usage:
-  bench/plot.py size    RAW.csv [RAW.csv ...] [--bytes-per-update B] [--ceiling-gbs G]
+  bench/plot.py size    RAW.csv [RAW.csv ...] [--bytes-per-update B]
   bench/plot.py threads RAW.csv [RAW.csv ...]
 
 `size`    : median throughput (MLUP/s) against the grid size, one curve per
@@ -11,8 +11,10 @@ Usage:
             curve per grid size, relative to 1 thread of the same kernel.
 
 Each repetition is one sample. Points are medians, bars span min to max.
-The figure (PNG) and a Markdown table are written next to the first CSV file.
-See docs/benchmarking.md.
+If a stream.csv file (written by run_bench.sh) sits next to the first CSV
+file, the main-memory ceiling it measured is drawn and each result is given
+as a percentage of it. The figure (PNG) and a Markdown table are written next
+to the first CSV file. See docs/benchmarking.md.
 """
 
 import argparse
@@ -40,6 +42,16 @@ def load(paths):
         print(f"warning: mixing several machines or commits: {sorted(labels)}",
               file=sys.stderr)
     return rows
+
+
+def load_ceilings(out_dir):
+    """Returns {threads: ceiling in MLUP/s} from stream.csv (scale kernel), if any."""
+    path = out_dir / "stream.csv"
+    if not path.exists():
+        return {}
+    with open(path, newline="") as f:
+        return {int(r["threads"]): float(r["melem_s"])
+                for r in csv.DictReader(f) if r["kernel"] == "scale"}
 
 
 def aggregate(rows):
@@ -70,12 +82,12 @@ def title_of(rows):
     return f"{first['label']} @ {first['commit']}"
 
 
-def plot_size(rows, stats, out_dir, bytes_per_update, ceiling_gbs):
+def plot_size(rows, stats, out_dir, bytes_per_update, ceilings):
     curves = defaultdict(list)
     for (kernel, threads, nx, ny), s in sorted(stats.items()):
         curves[(kernel, threads)].append((nx * ny, s))
 
-    fig, ax = plt.subplots(figsize=(7, 4.5))
+    fig, ax = plt.subplots(figsize=(10, 4.5))
     for (kernel, threads), points in sorted(curves.items()):
         cells = [c for c, _ in points]
         med = [s["mlups_median"] for _, s in points]
@@ -83,17 +95,18 @@ def plot_size(rows, stats, out_dir, bytes_per_update, ceiling_gbs):
         high = [s["mlups_max"] - s["mlups_median"] for _, s in points]
         ax.errorbar(cells, med, yerr=[low, high], marker="o", capsize=3,
                     label=f"{kernel}, {threads} thread(s)")
-    if ceiling_gbs:
-        ceiling_mlups = ceiling_gbs * 1e3 / bytes_per_update
-        ax.axhline(ceiling_mlups, linestyle="--", color="gray",
-                   label=f"bandwidth ceiling ({ceiling_gbs:g} GB/s, "
-                         f"{bytes_per_update:g} B/update)")
+    threads_shown = [t for t in sorted({threads for _, threads in curves}) if t in ceilings]
+    for threads, style in zip(threads_shown, ["--", ":", "-.", (0, (5, 1))]):
+        ax.axhline(ceilings[threads], linestyle=style, color="gray",
+                   label=f"main-memory ceiling, {threads} thread(s) "
+                         f"(STREAM scale, {ceilings[threads]:.0f} MLUP/s)")
     ax.set_xscale("log")
     ax.set_xlabel("grid cells (nx × ny)")
     ax.set_ylabel("throughput (MLUP/s)")
     ax.set_ylim(bottom=0)
     ax.grid(True, which="both", alpha=0.3)
-    ax.legend()
+    # Outside the axes: with several kernels, a legend inside hides the data.
+    ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1.0), fontsize=8)
     ax.set_title(f"Throughput vs grid size — {title_of(rows)}\n"
                  "median of repetitions, bars: min–max", fontsize=10)
     fig.tight_layout()
@@ -103,16 +116,26 @@ def plot_size(rows, stats, out_dir, bytes_per_update, ceiling_gbs):
     lines = [
         f"Results for {title_of(rows)}. Effective bandwidth assumes "
         f"{bytes_per_update:g} bytes per cell update.",
+    ]
+    if ceilings:
+        lines.append(
+            "Ceiling: element rate of the STREAM scale kernel in the same job "
+            "(main memory). It bounds grids larger than the last-level cache; "
+            "cache-resident grids can exceed it.")
+    lines += [
         "",
-        "| kernel | threads | grid | steps | reps | median MLUP/s | min–max | spread | eff. GB/s |",
-        "|---|---|---|---|---|---|---|---|---|",
+        "| kernel | threads | grid | steps | reps | median MLUP/s | min–max | spread "
+        "| eff. GB/s | % of ceiling |",
+        "|---|---|---|---|---|---|---|---|---|---|",
     ]
     for (kernel, threads, nx, ny), s in sorted(stats.items()):
         gbs = s["mlups_median"] * bytes_per_update / 1e3
+        ratio = (f"{100 * s['mlups_median'] / ceilings[threads]:.0f} %"
+                 if threads in ceilings else "–")
         lines.append(
             f"| {kernel} | {threads} | {nx}×{ny} | {s['steps']} | {s['n']} "
             f"| {s['mlups_median']:.1f} | {s['mlups_min']:.1f}–{s['mlups_max']:.1f} "
-            f"| {100 * s['spread']:.1f} % | {gbs:.2f} |")
+            f"| {100 * s['spread']:.1f} % | {gbs:.2f} | {ratio} |")
     return png, lines
 
 
@@ -173,8 +196,6 @@ def main():
                         help="memory traffic per cell update, for the effective "
                              "bandwidth (default: 24 = read c, write c_new, "
                              "write-allocate)")
-    parser.add_argument("--ceiling-gbs", type=float, default=None,
-                        help="measured memory bandwidth (GB/s) drawn as a ceiling")
     args = parser.parse_args()
 
     rows = load(args.csv)
@@ -182,7 +203,8 @@ def main():
     out_dir = args.csv[0].parent
 
     if args.mode == "size":
-        png, lines = plot_size(rows, stats, out_dir, args.bytes_per_update, args.ceiling_gbs)
+        png, lines = plot_size(rows, stats, out_dir, args.bytes_per_update,
+                               load_ceilings(out_dir))
         md = out_dir / "summary_size.md"
     else:
         png, lines = plot_threads(rows, stats, out_dir)

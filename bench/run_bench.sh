@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Runs the benchmark matrix and stores raw results with a description of the
-# machine and the build. See docs/benchmarking.md for the protocol and the
+# machine and the build, after measuring the memory bandwidth of the machine
+# with bench/stream.cpp. See docs/benchmarking.md for the protocol and the
 # contract the driver must follow.
 #
 # Usage: bench/run_bench.sh [options]
@@ -40,8 +41,8 @@ while getopts "b:o:l:s:k:t:r:w:u:fh" opt; do
         w) warmup=$OPTARG ;;
         u) target_updates=$OPTARG ;;
         f) force=1 ;;
-        h) sed -n '2,18p' "$0"; exit 0 ;;
-        *) sed -n '2,18p' "$0" >&2; exit 2 ;;
+        h) sed -n '2,17p' "$0"; exit 0 ;;
+        *) sed -n '2,17p' "$0" >&2; exit 2 ;;
     esac
 done
 
@@ -98,6 +99,26 @@ env_file="$out_dir/env.txt"
     echo "--- free -m"
     free -m 2>/dev/null || echo "free unavailable"
 } > "$env_file"
+
+# --- Memory bandwidth ceiling (mini-STREAM) ---------------------------------
+# Measured in the same job as the kernels, once per thread count, so that the
+# ceiling describes the machine the kernels actually ran on.
+stream_bin="$build_dir/stream"
+if [[ -x "$stream_bin" ]]; then
+    expected_stream_header="kernel,n,threads,best_s,median_s,stream_gbs,traffic_gbs,melem_s"
+    echo "label,commit,$expected_stream_header" > "$out_dir/stream.csv"
+    for threads in $threads_list; do
+        echo "stream threads=$threads" >&2
+        output=$(OMP_NUM_THREADS=$threads "$stream_bin")
+        if [[ "$(head -n 1 <<< "$output")" != "$expected_stream_header" ]]; then
+            echo "error: unexpected CSV header from $stream_bin" >&2
+            exit 1
+        fi
+        tail -n +2 <<< "$output" | sed "s/^/$label,$commit,/" >> "$out_dir/stream.csv"
+    done
+else
+    echo "warning: $stream_bin not found, no bandwidth ceiling measured" >&2
+fi
 
 # --- Benchmark matrix --------------------------------------------------------
 expected_header="kernel,nx,ny,steps,rep,time_s,mlups,mass_rel_err"

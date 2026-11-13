@@ -46,3 +46,14 @@ if(ADVDIFF_BUILD_TESTS)
     PROPERTIES SKIP_RETURN_CODE 4
     EXTRA_ARGS --rng-seed 12345)
 endif()
+
+# Memory-bandwidth probe used by bench/run_bench.sh (bench/stream.cpp).
+# OpenMP is optional: without it, stream measures a single thread.
+find_package(OpenMP)
+add_executable(stream bench/stream.cpp)
+target_compile_options(stream PRIVATE
+  -Wall -Wextra -Wpedantic
+  $<$<BOOL:${ADVDIFF_WARNINGS_AS_ERRORS}>:-Werror>)
+if(OpenMP_CXX_FOUND)
+  target_link_libraries(stream PRIVATE OpenMP::OpenMP_CXX)
+endif()
