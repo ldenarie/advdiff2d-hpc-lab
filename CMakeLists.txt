@@ -20,7 +20,10 @@ if(ADVDIFF_SANITIZE)
 endif()
 
 # Core library: data structures and kernels.
-add_library(advdiff src/kernel_seq.cpp)
+add_library(advdiff
+    src/kernel_seq.cpp
+    src/kernel_registry.cpp
+)
 target_include_directories(advdiff
     PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/include
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/include
