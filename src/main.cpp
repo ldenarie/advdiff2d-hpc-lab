@@ -18,6 +18,7 @@
 
 #include <advdiff/field.hpp>
 #include <advdiff/kernel.hpp>
+#include <advdiff/kernel_registry.hpp>
 #include <advdiff/problem.hpp>
 
 #include <chrono>
@@ -81,7 +82,8 @@ void init_gaussian(advdiff::Field& c, const advdiff::Grid& g,
 }
 
 struct BenchmarkConfiguration {
-    std::string kernel;
+    std::string_view kernel_name;
+    advdiff::StepFunction kernel_step;
     int steps;
     int warmup;
     int reps;
@@ -135,17 +137,9 @@ void run_configuration(int nx, int ny, const BenchmarkConfiguration& conf, OUTPU
     init_gaussian(c, params.g, 0.5 * params.g.lx, 0.5 * params.g.ly, 0.05 * params.g.lx);
 
     auto advance = [&c, &c_new, &params, &conf](int nb_steps) {
-        auto kernel_function = [](std::string_view kernel) {
-            if (kernel =="naive") {
-                return advdiff::step_naive;
-            } else if (kernel == "weighted") {
-                return advdiff::step_weighted;
-            }
-            return advdiff::step_incremental;
-        } (conf.kernel);
         for (int n = 0; n < nb_steps; ++n) {
             advdiff::apply_periodic_bc(c);
-            kernel_function(c, c_new, params.g, params.p, params.dt);
+            conf.kernel_step(c, c_new, params.g, params.p, params.dt);
             std::swap(c, c_new); // O(1): swaps the underlying buffers
         }
     };
@@ -187,7 +181,7 @@ void run_configuration(int nx, int ny, const BenchmarkConfiguration& conf, OUTPU
             }
         };
 
-        record_output(conf.kernel, params, results);
+        record_output(conf.kernel_name, params, results);
     }
 }
 
@@ -234,9 +228,22 @@ int main(int argc, char** argv) {
     try {
         const Options opts = parse_args(argc, argv);
 
-        const std::string kernel = get<std::string>(opts, "kernel", "incremental");
-        if (kernel != "weighted" and kernel != "naive" and kernel != "incremental") {
-            throw std::invalid_argument(std::format("Unknown kernel. Got: {}, Expected: weighted|naive|incremental", kernel));
+        const auto kernel_name = get<std::string>(opts, "kernel", std::string{advdiff::default_kernel});
+        const auto kernel = advdiff::find_kernel(kernel_name);
+        if (!kernel.has_value()) {
+            const auto authorized_kernels = []{
+                std::string result;
+                for(std::string_view sep; auto name : advdiff::kernel_names) {
+                    result += sep;
+                    result += name;
+                    sep = "|";
+                }
+                return result;
+            }();
+            throw std::invalid_argument(std::format(
+                "Unknown kernel. Got: {}, Expected: {}", kernel_name,
+                authorized_kernels
+            ));
         }
 
         const int nx = get<int>(opts, "nx", 512);
@@ -264,7 +271,7 @@ int main(int argc, char** argv) {
             throw std::invalid_argument(std::format("warmup must be >= 0. Got: {}", warmup));
         }
 
-        const std::string output = get<std::string>(opts, "output", "text");
+        const std::string_view output = get<std::string>(opts, "output", "text");
         if (output != "text" && output != "csv") {
             throw std::invalid_argument(std::format("output argument invalid. Got: {}, Expected: text | csv", output));
         }
@@ -276,7 +283,8 @@ int main(int argc, char** argv) {
         auto record_output = output == "csv" ? record_output_csv : record_output_text;
 
         const BenchmarkConfiguration conf{
-            .kernel = kernel,
+            .kernel_name = kernel_name,
+            .kernel_step = kernel.value(),
             .steps = steps,
             .warmup = warmup,
             .reps = reps
