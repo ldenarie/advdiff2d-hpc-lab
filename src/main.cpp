@@ -9,12 +9,12 @@
 //         Warm-up repetitions absorb first-touch page faults and cache effects of the first steps.
 //
 // Usage: advdiff2d [key=value ...]
-//   kernel     used kernel (weighted|naive|incremental) (default incremental)
-//   nx, ny     grid size                                (default 512 x 512)
-//   steps      number of time steps in a run            (default 200)
-//   reps       number of run to benchmark               (default to 3)
-//   warmup     number of warmup run                     (default to 1)
-//   output     output format (text|csv)                 (default to text)
+//   kernel     used kernel (weighted|naive|incremental|omp) (default incremental)
+//   nx, ny     grid size                                    (default 512 x 512)
+//   steps      number of time steps in a run                (default 200)
+//   reps       number of run to benchmark                   (default to 3)
+//   warmup     number of warmup run                         (default to 1)
+//   output     output format (text|csv)                     (default to text)
 
 #include <advdiff/field.hpp>
 #include <advdiff/kernel.hpp>

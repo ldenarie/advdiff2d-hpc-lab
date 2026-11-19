@@ -7,6 +7,8 @@
 
 #include <advdiff/details/kernel.hpp>
 
+#include <omp.h>
+
 #include <catch2/catch_get_random_seed.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
@@ -960,7 +962,7 @@ TEST_CASE("A uniform field is perfectly unchanged", "[kernel]") {
 
     double s = advdiff::stability_number(g, p, dt);
 
-    const auto kernel_name = GENERATE("naive", "incremental");
+    const auto kernel_name = GENERATE("naive", "incremental", "omp");
     const auto kernel_step_function = advdiff::find_kernel(kernel_name).value();
 
     CAPTURE(kernel_name, rows, cols, c_value, p.u, p.v, p.kappa, dt, s);
@@ -1347,4 +1349,50 @@ TEST_CASE("Pure upwind advection converges at first order", "[convergence]") {
 
     REQUIRE_THAT(order_64_128, Catch::Matchers::WithinAbs(1., .1));
     REQUIRE_THAT(order_128_256, Catch::Matchers::WithinAbs(1., .1));
+}
+
+TEST_CASE("step_incremental_omp matches step_incremental perfectly", "[kernel]") {
+    const auto rows = GENERATE(1, 2, 3, 17, 64);
+    const auto cols = GENERATE(1, 2, 3, 31);
+    const auto rep = GENERATE(range(0, 5));
+    const auto nb_thread = GENERATE(1, 2, 3, 4);
+
+    const auto seed = Catch::getSeed() + static_cast<std::uint32_t>(rows * 1000003u + cols * 1009u + rep);
+    CAPTURE(nb_thread, rows, cols, rep, seed);
+
+    std::mt19937 rng(seed);
+
+    advdiff::Physics p;
+    p.u = 2.5;
+    p.v = 1.3;
+    p.kappa = 0.6;
+
+    advdiff::Grid g;
+    g.nx = cols;
+    g.ny = rows;
+
+    const auto dt = 0.5;
+
+    advdiff::Field c{g.nx, g.ny};
+    for (int j = 0; j < g.ny; ++j) {
+        for (int i = 0; i < g.nx; ++i) {
+            c(i, j) = uniform(rng, -100., 100.);
+        }
+    }
+
+    advdiff::Field c_new_seq{g.nx, g.ny};
+    advdiff::Field c_new_omp{g.nx, g.ny};
+
+    advdiff::apply_periodic_bc(c);
+    advdiff::step_incremental(c, c_new_seq, g, p, dt);
+
+    omp_set_num_threads(nb_thread);
+    advdiff::step_incremental_omp(c, c_new_omp, g, p, dt);
+
+    for (int j = 0; j < g.ny; ++j) {
+        for (int i = 0; i < g.nx; ++i) {
+            REQUIRE(c_new_seq(i, j) == c_new_omp(i, j));
+        }
+    }
+    omp_set_num_threads(1);
 }

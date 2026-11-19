@@ -219,3 +219,85 @@ the memory bandwidth. But the limit is still around 50 % of the ceiling (scale
 mini-STREAM). There are multiple hypothesis that could explain this large
 difference. I chose not to explore these for now. I might come back later on
 this subject after the parallel implementation.
+
+# Parallelization
+
+## Setup
+
+There are multiple question that must be answered to make a proper parallelization.
+
+### Which loop should be parallelized ?
+
+In the kernel, there two nested loop.  Both can in theory be parallelized. But
+it may not be interresting to parallelized both. I will only parallelize the
+outer loop for multiple reasons:
+
+- There is a fix cost at every parallelization block. If the work is done in the
+  inner loop, it is paied at each iteration of the outer loop. Both loop could be
+  in the same parallel block though.
+
+- On this project, I only have a very few number of threads (up to 4). In all
+  the interesting cases, all thread will be fully used, by far. There is no gain
+  in trying to split the work inside the inner loop. It would not increase the
+  number of parallel jobs.
+
+### Which schedule policy ?
+
+Each row has a fixed size. There is no reason to think a dynamic or guided
+schedule would produce better results.
+
+### Should `apply_periodic_bc` be parallelized ?
+
+`apply_periodic_bc` is ran one time after each step. As such, it is a good
+candidate for parallelization. But lets consider the actual amount of
+computation occuring in this function to evaluate if it is even worth
+considering it.
+
+In the kernel step function, the number of instruction read is the dimension of
+the field (`nx * ny`) multiplied by the number of instruction read in every cell
+update (as we saw before, around 10). So a total of `10 (nx * ny)`. In the
+`apply_periodic_bc` function, each ghost cell update is a single read and write.
+And there are `2 (nx + ny)` number of update. With a grid size of 128, this
+represent 0.3 % of the computation required by a kernel step. And this ration
+decreases when the size of the grid increases. Considering our grid size and the
+duration of our computation. This place is not the priority.
+
+## Performance gain prediction
+
+This section describes the changes that I am expecting with the OMP version of
+the kernel.
+
+The virtual machine on which the simulation are running, in GitHub Action, have
+a x86_64 architecture, with 2 cores, and 2 threads for each core. So there can
+be, in theory, up to 4 parallel threads. But 2 of those threads are virtual
+threads.  There are 3 levels of cache :
+
+- L1: between 32 and 48 KiB (depending on the machine) per core.
+
+- L2: 1MiB per core.
+
+- L3: 32MiB for the while VM (and probably even shared with other VM on the same
+  physical machine, so subject to noise dpending on the usage).
+
+The benchmark field sizes fits in the cache as following:
+
+- 128²: larger than L1, but fits in L2.
+
+- 512²: larger than L2, but fits in L3 (in theory).
+
+- 2048²: larger than L3 (but not by a lot, and L3 is not reseved to our own
+  usage, so should be considered outside of L3).
+
+- 4096²: larger than L3.
+
+For grids that fit in the cache, I would expect the OMP version of the kernel to
+be significantly faster. With 2 threads, if the 2 fold improvment will probably
+not be reached, something close can be expected. With 3 or 4 thread, though, I
+woul not expect any additional improvment as these are SMT threads running on
+the same cores.
+
+For grids larger than the cache, I would expect small improvments but with a
+threshold caused by the memory read. For 2 threads, this threshold should be
+equivalent to the threshold of the STREAM test for the same number of threads.
+Again, no additional gains are expected on 3 or 4 threads.
+
