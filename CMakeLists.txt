@@ -19,14 +19,20 @@ if(ADVDIFF_SANITIZE)
   add_link_options(-fsanitize=address,undefined)
 endif()
 
+find_package(OpenMP REQUIRED)
+
 # Core library: data structures and kernels.
 add_library(advdiff
     src/kernel_seq.cpp
+    src/kernel_omp.cpp
     src/kernel_registry.cpp
 )
 target_include_directories(advdiff
     PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/include
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/include
+)
+target_link_libraries(advdiff
+    PRIVATE OpenMP::OpenMP_CXX
 )
 target_compile_options(advdiff PUBLIC
   -Wall -Wextra -Wpedantic
@@ -42,7 +48,7 @@ if(ADVDIFF_BUILD_TESTS)
   find_package(Catch2 3 REQUIRED)
   include(Catch)
   add_executable(test_kernel tests/test_kernel.cpp)
-  target_link_libraries(test_kernel PRIVATE advdiff Catch2::Catch2WithMain)
+  target_link_libraries(test_kernel PRIVATE advdiff Catch2::Catch2WithMain OpenMP::OpenMP_CXX)
   target_include_directories(test_kernel PRIVATE ${PROJECT_SOURCE_DIR}/src/include)
   # Catch2 exits with code 4 when a test is skipped; report it as skipped, not failed.
   catch_discover_tests(test_kernel
@@ -52,11 +58,8 @@ endif()
 
 # Memory-bandwidth probe used by bench/run_bench.sh (bench/stream.cpp).
 # OpenMP is optional: without it, stream measures a single thread.
-find_package(OpenMP)
 add_executable(stream bench/stream.cpp)
 target_compile_options(stream PRIVATE
   -Wall -Wextra -Wpedantic
   $<$<BOOL:${ADVDIFF_WARNINGS_AS_ERRORS}>:-Werror>)
-if(OpenMP_CXX_FOUND)
-  target_link_libraries(stream PRIVATE OpenMP::OpenMP_CXX)
-endif()
+target_link_libraries(stream PRIVATE OpenMP::OpenMP_CXX)

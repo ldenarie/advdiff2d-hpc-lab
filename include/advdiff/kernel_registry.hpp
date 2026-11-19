@@ -18,6 +18,7 @@ struct KernelInfo {
 
 inline constexpr std::array kernels {
     KernelInfo{.name = "incremental", .step = step_incremental},
+    KernelInfo{.name = "omp", .step = step_incremental_omp},
     KernelInfo{.name = "naive", .step = step_naive},
     KernelInfo{.name = "weighted", .step = step_weighted},
 };

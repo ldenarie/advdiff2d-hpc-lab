@@ -10,10 +10,10 @@ on:
         default: "128 512 2048 4096"
       kernels:
         description: "Kernels"
-        default: "incremental"
+        default: "naive weighted incremental omp"
       threads:
         description: "OMP_NUM_THREADS values"
-        default: "1"
+        default: "1 2 3 4"
       reps:
         description: "Timed repetitions per configuration"
         default: "7"

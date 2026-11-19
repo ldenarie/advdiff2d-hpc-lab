@@ -27,6 +27,12 @@ void step_weighted(const Field& c, Field& c_new, const Grid& g, const Physics& p
 // Precondition: ghost cells of `c` are up to date.
 void step_incremental(const Field& c, Field& c_new, const Grid& g, const Physics& p, double dt);
 
+// One forward Euler step of the upwind / centred scheme (docs/model.md, section 2).
+// Reads the interior and ghost cells of `c`; writes the interior of `c_new`.
+// Incremental sum implementation with openMP
+// Precondition: ghost cells of `c` are up to date.
+void step_incremental_omp(const Field& c, Field& c_new, const Grid& g, const Physics& p, double dt);
+
 // S = |u| dt/dx + |v| dt/dy + 2 kappa dt/dx^2 + 2 kappa dt/dy^2 (docs/model.md, section 3).
 double stability_number(const Grid& g, const Physics& p, double dt);
 
