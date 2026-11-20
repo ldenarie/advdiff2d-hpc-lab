@@ -79,9 +79,18 @@ header and the number of lines.
   bounds the main-memory regime. A plain copy is not used, because compilers
   turn it into `memcpy`, which may bypass the cache with non-temporal stores
   and avoid the write-allocate traffic that the stencil pays.
-- **Speedup** S(p) = T(1) / T(p), and **efficiency** E(p) = S(p) / p, from
-  median times, against the same kernel on 1 thread (not against `weighted`, unless
-  stated).
+- **Sequential and parallel kernels.** Sequential kernels (`-k`) do not
+  depend on the thread count and run once, on 1 thread. Parallel kernels
+  (`-p`) run once per value of `-t`. Threads are placed with
+  `OMP_PROC_BIND=close` and `OMP_PLACES=cores` in the benchmark workflow.
+- **Speedup** S(p) = T_ref / T(p), and **efficiency** E(p) = S(p) / p, from
+  median times. Two references are reported:
+  - the same parallel kernel on 1 thread: it measures how the parallel code
+    scales (`summary_threads.md`);
+  - the best sequential kernel on 1 thread (`--baseline`, `incremental` by
+    default in the workflow): it measures what parallelism actually brings
+    over the best sequential code (`summary_threads_vs_<baseline>.md`). This is
+    the honest figure; the first one hides the overhead of the parallel code.
 
 ## 4. Limits of these measurements
 

@@ -3,12 +3,13 @@
 
 Usage:
   bench/plot.py size    RAW.csv [RAW.csv ...] [--bytes-per-update B]
-  bench/plot.py threads RAW.csv [RAW.csv ...]
+  bench/plot.py threads RAW.csv [RAW.csv ...] [--baseline KERNEL]
 
 `size`    : median throughput (MLUP/s) against the grid size, one curve per
             kernel and thread count.
 `threads` : speedup and parallel efficiency against the thread count, one
-            curve per grid size, relative to 1 thread of the same kernel.
+            curve per parallel kernel and grid size, relative to the same
+            kernel on 1 thread, or to --baseline on 1 thread.
 
 Each repetition is one sample. Points are medians, bars span min to max.
 If a stream.csv file (written by run_bench.sh) sits next to the first CSV
@@ -139,28 +140,34 @@ def plot_size(rows, stats, out_dir, bytes_per_update, ceilings):
     return png, lines
 
 
-def plot_threads(rows, stats, out_dir):
+def plot_threads(rows, stats, out_dir, baseline=None):
     by_size = defaultdict(dict)
     for (kernel, threads, nx, ny), s in stats.items():
         by_size[(kernel, nx, ny)][threads] = s
 
+    reference = (f"the median time of `{baseline}` on 1 thread" if baseline
+                 else "the median time of the same kernel on 1 thread")
     fig, (ax_s, ax_e) = plt.subplots(1, 2, figsize=(10, 4.2))
     max_threads = 1
     lines = [
-        f"Results for {title_of(rows)}. Speedup S(p) = T(1) / T(p) with median "
-        "times; efficiency E(p) = S(p) / p.",
+        f"Results for {title_of(rows)}. Speedup S(p) = T_ref / T(p), where T_ref "
+        f"is {reference}; efficiency E(p) = S(p) / p. Median times.",
         "",
         "| kernel | grid | threads | median time (s) | speedup | efficiency |",
         "|---|---|---|---|---|---|",
     ]
     for (kernel, nx, ny), per_threads in sorted(by_size.items()):
-        if 1 not in per_threads:
-            print(f"warning: no 1-thread run for {kernel} {nx}x{ny}, skipped",
-                  file=sys.stderr)
+        if len(per_threads) < 2 or kernel == baseline:
+            continue  # sequential kernel: run on one thread count only
+        ref_kernel = baseline or kernel
+        ref = stats.get((ref_kernel, 1, nx, ny))
+        if ref is None:
+            print(f"warning: no 1-thread run of {ref_kernel} for {nx}x{ny}, "
+                  f"{kernel} skipped", file=sys.stderr)
             continue
-        t1 = per_threads[1]["time_median"]
+        t_ref = ref["time_median"]
         ps = sorted(per_threads)
-        speedup = [t1 / per_threads[p]["time_median"] for p in ps]
+        speedup = [t_ref / per_threads[p]["time_median"] for p in ps]
         efficiency = [s / p for s, p in zip(speedup, ps)]
         max_threads = max(max_threads, ps[-1])
         label = f"{kernel}, {nx}×{ny}"
@@ -180,9 +187,11 @@ def plot_threads(rows, stats, out_dir):
         ax.set_ylim(bottom=0)
         ax.grid(True, alpha=0.3)
         ax.legend(fontsize=8)
-    fig.suptitle(f"Strong scaling — {title_of(rows)} (median times)", fontsize=10)
+    versus = f", speedup vs {baseline} on 1 thread" if baseline else ""
+    fig.suptitle(f"Strong scaling — {title_of(rows)} (median times{versus})", fontsize=10)
     fig.tight_layout()
-    png = out_dir / "scaling_threads.png"
+    suffix = f"_vs_{baseline}" if baseline else ""
+    png = out_dir / f"scaling_threads{suffix}.png"
     fig.savefig(png, dpi=150)
     return png, lines
 
@@ -192,6 +201,10 @@ def main():
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("mode", choices=["size", "threads"])
     parser.add_argument("csv", nargs="+", type=pathlib.Path)
+    parser.add_argument("--baseline", default=None,
+                        help="threads mode: compute speedups against this kernel on "
+                             "1 thread (e.g. the best sequential kernel) instead of "
+                             "the same kernel on 1 thread")
     parser.add_argument("--bytes-per-update", type=float, default=24.0,
                         help="memory traffic per cell update, for the effective "
                              "bandwidth (default: 24 = read c, write c_new, "
@@ -207,8 +220,9 @@ def main():
                                load_ceilings(out_dir))
         md = out_dir / "summary_size.md"
     else:
-        png, lines = plot_threads(rows, stats, out_dir)
-        md = out_dir / "summary_threads.md"
+        png, lines = plot_threads(rows, stats, out_dir, args.baseline)
+        md = out_dir / (f"summary_threads_vs_{args.baseline}.md" if args.baseline
+                        else "summary_threads.md")
 
     md.write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
