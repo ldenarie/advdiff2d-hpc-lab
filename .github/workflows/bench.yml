@@ -9,11 +9,17 @@ on:
         description: "Grid sizes n (n x n)"
         default: "128 512 2048 4096"
       kernels:
-        description: "Kernels"
-        default: "naive weighted incremental omp"
+        description: "Sequential kernels (run once, 1 thread)"
+        default: "naive weighted incremental"
+      parallel_kernels:
+        description: "Parallel kernels (run for each thread count)"
+        default: "omp"
       threads:
-        description: "OMP_NUM_THREADS values"
+        description: "OMP_NUM_THREADS values for the parallel kernels"
         default: "1 2 3 4"
+      baseline:
+        description: "Sequential kernel used as the reference for speedups"
+        default: "incremental"
       reps:
         description: "Timed repetitions per configuration"
         default: "7"
@@ -24,8 +30,14 @@ jobs:
     env:
       SIZES: ${{ inputs.sizes }}
       KERNELS: ${{ inputs.kernels }}
+      PARALLEL_KERNELS: ${{ inputs.parallel_kernels }}
       THREADS: ${{ inputs.threads }}
+      BASELINE: ${{ inputs.baseline }}
       REPS: ${{ inputs.reps }}
+      # Fixed thread placement, so that runs are comparable: threads are packed
+      # onto cores (2 hardware threads per core on these runners).
+      OMP_PROC_BIND: close
+      OMP_PLACES: cores
     steps:
       - uses: actions/checkout@v5
 
@@ -43,7 +55,8 @@ jobs:
         id: run
         run: |
           out_dir=$(bench/run_bench.sh -b build-release -l gha-ubuntu-24.04 \
-                      -s "$SIZES" -k "$KERNELS" -t "$THREADS" -r "$REPS")
+                      -s "$SIZES" -k "$KERNELS" -p "$PARALLEL_KERNELS" \
+                      -t "$THREADS" -r "$REPS")
           echo "out_dir=$out_dir" >> "$GITHUB_OUTPUT"
 
       - name: Plot and summarize
@@ -51,8 +64,11 @@ jobs:
           OUT_DIR: ${{ steps.run.outputs.out_dir }}
         run: |
           python3 bench/plot.py size "$OUT_DIR/raw.csv"
-          if [ "$(wc -w <<< "$THREADS")" -gt 1 ]; then
+          if [ -n "$PARALLEL_KERNELS" ] && [ "$(wc -w <<< "$THREADS")" -gt 1 ]; then
             python3 bench/plot.py threads "$OUT_DIR/raw.csv"
+            if [ -n "$BASELINE" ]; then
+              python3 bench/plot.py threads "$OUT_DIR/raw.csv" --baseline "$BASELINE"
+            fi
           fi
           cat "$OUT_DIR"/summary_*.md >> "$GITHUB_STEP_SUMMARY"
 

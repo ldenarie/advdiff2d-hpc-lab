@@ -9,8 +9,9 @@
 #   -o DIR    root directory for results               (default: results)
 #   -l LABEL  machine label used in the output name    (default: short hostname)
 #   -s LIST   grid sizes n (n x n grid)                (default: "128 512 2048 4096")
-#   -k LIST   kernels passed as kernel=...             (default: "naive weighted incremental omp")
-#   -t LIST   values of OMP_NUM_THREADS                (default: "1 2 3 4")
+#   -k LIST   sequential kernels, run once with 1 thread (default: "naive weighted incremental")
+#   -p LIST   parallel kernels, run for each value of -t (default: "omp")
+#   -t LIST   values of OMP_NUM_THREADS for -p kernels (default: "1 2 3 4")
 #   -r N      timed repetitions per configuration      (default: 7)
 #   -w N      untimed warm-up repetitions              (default: 1)
 #   -u N      target cell updates per repetition       (default: 200000000)
@@ -22,27 +23,29 @@ build_dir=build-release
 out_root=results
 label=$(hostname -s 2>/dev/null || echo unknown)
 sizes="128 512 2048 4096"
-kernels="naive weighted incremental omp"
+kernels="naive weighted incremental"
+parallel_kernels="omp"
 threads_list="1 2 3 4"
 reps=7
 warmup=1
 target_updates=200000000
 force=0
 
-while getopts "b:o:l:s:k:t:r:w:u:fh" opt; do
+while getopts "b:o:l:s:k:p:t:r:w:u:fh" opt; do
     case "$opt" in
         b) build_dir=$OPTARG ;;
         o) out_root=$OPTARG ;;
         l) label=$OPTARG ;;
         s) sizes=$OPTARG ;;
         k) kernels=$OPTARG ;;
+        p) parallel_kernels=$OPTARG ;;
         t) threads_list=$OPTARG ;;
         r) reps=$OPTARG ;;
         w) warmup=$OPTARG ;;
         u) target_updates=$OPTARG ;;
         f) force=1 ;;
-        h) sed -n '2,17p' "$0"; exit 0 ;;
-        *) sed -n '2,17p' "$0" >&2; exit 2 ;;
+        h) sed -n '2,18p' "$0"; exit 0 ;;
+        *) sed -n '2,18p' "$0" >&2; exit 2 ;;
     esac
 done
 
@@ -89,7 +92,8 @@ env_file="$out_dir/env.txt"
     done
     compiler=$(cache_value CMAKE_CXX_COMPILER)
     echo "compiler_version: $("$compiler" --version 2>/dev/null | head -n 1)"
-    echo "benchmark: sizes='$sizes' kernels='$kernels' threads='$threads_list'" \
+    echo "benchmark: sizes='$sizes' kernels='$kernels' parallel_kernels='$parallel_kernels'" \
+         "threads='$threads_list'" \
          "reps=$reps warmup=$warmup target_updates=$target_updates"
     echo "env: $(env | grep -E '^(OMP|GOMP|KMP)_' | sort | tr '\n' ' ')"
     echo
@@ -101,13 +105,19 @@ env_file="$out_dir/env.txt"
 } > "$env_file"
 
 # --- Memory bandwidth ceiling (mini-STREAM) ---------------------------------
-# Measured in the same job as the kernels, once per thread count, so that the
-# ceiling describes the machine the kernels actually ran on.
+# Measured in the same job as the kernels, once per thread count used below
+# (always including 1, for the sequential kernels), so that the ceiling
+# describes the machine the kernels actually ran on.
+if [[ -n "$parallel_kernels" ]]; then
+    stream_threads=$(printf '%s\n' 1 $threads_list | sort -nu | tr '\n' ' ')
+else
+    stream_threads=1
+fi
 stream_bin="$build_dir/stream"
 if [[ -x "$stream_bin" ]]; then
     expected_stream_header="kernel,n,threads,best_s,median_s,stream_gbs,traffic_gbs,melem_s"
     echo "label,commit,$expected_stream_header" > "$out_dir/stream.csv"
-    for threads in $threads_list; do
+    for threads in $stream_threads; do
         echo "stream threads=$threads" >&2
         output=$(OMP_NUM_THREADS=$threads "$stream_bin")
         if [[ "$(head -n 1 <<< "$output")" != "$expected_stream_header" ]]; then
@@ -124,29 +134,43 @@ fi
 expected_header="kernel,nx,ny,steps,rep,time_s,mlups,mass_rel_err"
 echo "label,commit,threads,$expected_header" > "$raw"
 
+run_configuration() {
+    local kernel=$1 threads=$2 n=$3
+    # Enough steps for each repetition to last long enough to be timed reliably.
+    local steps=$(( (target_updates + n * n - 1) / (n * n) ))
+    echo "kernel=$kernel threads=$threads n=$n steps=$steps" >&2
+    local output header rows
+    output=$(OMP_NUM_THREADS=$threads "$driver" \
+                 kernel="$kernel" nx="$n" ny="$n" steps="$steps" \
+                 reps="$reps" warmup="$warmup" output=csv)
+    header=$(head -n 1 <<< "$output")
+    if [[ "$header" != "$expected_header" ]]; then
+        echo "error: unexpected CSV header from the driver:" >&2
+        echo "  got:      $header" >&2
+        echo "  expected: $expected_header" >&2
+        exit 1
+    fi
+    rows=$(tail -n +2 <<< "$output")
+    if [[ $(grep -c . <<< "$rows") -ne $reps ]]; then
+        echo "error: expected $reps rows, got:" >&2
+        echo "$rows" >&2
+        exit 1
+    fi
+    sed "s/^/$label,$commit,$threads,/" <<< "$rows" >> "$raw"
+}
+
+# Sequential kernels do not depend on the thread count: one run, 1 thread.
 for kernel in $kernels; do
+    for n in $sizes; do
+        run_configuration "$kernel" 1 "$n"
+    done
+done
+
+# Parallel kernels: one run per thread count.
+for kernel in $parallel_kernels; do
     for threads in $threads_list; do
         for n in $sizes; do
-            # Enough steps for each repetition to last long enough to be timed reliably.
-            steps=$(( (target_updates + n * n - 1) / (n * n) ))
-            echo "kernel=$kernel threads=$threads n=$n steps=$steps" >&2
-            output=$(OMP_NUM_THREADS=$threads "$driver" \
-                         kernel="$kernel" nx="$n" ny="$n" steps="$steps" \
-                         reps="$reps" warmup="$warmup" output=csv)
-            header=$(head -n 1 <<< "$output")
-            if [[ "$header" != "$expected_header" ]]; then
-                echo "error: unexpected CSV header from the driver:" >&2
-                echo "  got:      $header" >&2
-                echo "  expected: $expected_header" >&2
-                exit 1
-            fi
-            rows=$(tail -n +2 <<< "$output")
-            if [[ $(grep -c . <<< "$rows") -ne $reps ]]; then
-                echo "error: expected $reps rows, got:" >&2
-                echo "$rows" >&2
-                exit 1
-            fi
-            sed "s/^/$label,$commit,$threads,/" <<< "$rows" >> "$raw"
+            run_configuration "$kernel" "$threads" "$n"
         done
     done
 done
