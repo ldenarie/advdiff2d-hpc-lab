@@ -301,3 +301,84 @@ threshold caused by the memory read. For 2 threads, this threshold should be
 equivalent to the threshold of the STREAM test for the same number of threads.
 Again, no additional gains are expected on 3 or 4 threads.
 
+## Result analysis
+
+Here is the summary of the results:
+
+| kernel | threads | grid | steps | reps | median MLUP/s | min–max | spread | eff. GB/s | % of ceiling |
+|---|---|---|---|---|---|---|---|---|---|
+| incremental | 1 | 128×128 | 12208 | 7 | 1396.2 | 1387.1–1409.5 | 1.6 % | 33.51 | 68 % |
+| incremental | 1 | 512×512 | 763 | 7 | 1424.8 | 1421.5–1425.8 | 0.3 % | 34.20 | 69 % |
+| incremental | 1 | 2048×2048 | 48 | 7 | 942.7 | 921.4–945.4 | 2.5 % | 22.63 | 46 % |
+| incremental | 1 | 4096×4096 | 12 | 7 | 909.0 | 889.6–913.7 | 2.7 % | 21.82 | 44 % |
+| omp | 1 | 128×128 | 12208 | 7 | 1321.5 | 1320.8–1351.8 | 2.3 % | 31.72 | 64 % |
+| omp | 1 | 512×512 | 763 | 7 | 1395.2 | 1391.3–1400.0 | 0.6 % | 33.48 | 68 % |
+| omp | 1 | 2048×2048 | 48 | 7 | 952.7 | 940.5–956.5 | 1.7 % | 22.86 | 46 % |
+| omp | 1 | 4096×4096 | 12 | 7 | 915.3 | 906.7–919.0 | 1.4 % | 21.97 | 44 % |
+| omp | 2 | 128×128 | 12208 | 7 | 2209.3 | 2193.9–2294.4 | 4.6 % | 53.02 | 89 % |
+| omp | 2 | 512×512 | 763 | 7 | 2521.9 | 2485.7–2527.4 | 1.7 % | 60.53 | 102 % |
+| omp | 2 | 2048×2048 | 48 | 7 | 1836.9 | 1733.9–1856.6 | 6.7 % | 44.09 | 74 % |
+| omp | 2 | 4096×4096 | 12 | 7 | 1749.1 | 1727.1–1755.8 | 1.6 % | 41.98 | 70 % |
+| omp | 3 | 128×128 | 12208 | 7 | 1738.6 | 1700.6–1741.2 | 2.3 % | 41.73 | 71 % |
+| omp | 3 | 512×512 | 763 | 7 | 1828.3 | 1695.0–1830.7 | 7.4 % | 43.88 | 75 % |
+| omp | 3 | 2048×2048 | 48 | 7 | 1790.1 | 1785.0–1795.9 | 0.6 % | 42.96 | 73 % |
+| omp | 3 | 4096×4096 | 12 | 7 | 1695.5 | 1686.1–1750.8 | 3.8 % | 40.69 | 70 % |
+| omp | 4 | 128×128 | 12208 | 7 | 2121.5 | 2070.1–2146.0 | 3.6 % | 50.92 | 85 % |
+| omp | 4 | 512×512 | 763 | 7 | 2394.7 | 2346.7–2414.6 | 2.8 % | 57.47 | 96 % |
+| omp | 4 | 2048×2048 | 48 | 7 | 2319.0 | 1937.4–2364.3 | 18.4 % | 55.66 | 93 % |
+| omp | 4 | 4096×4096 | 12 | 7 | 2181.7 | 2168.8–2196.7 | 1.3 % | 52.36 | 87 % |
+
+And here is the graph that shows the throughput comparison:
+
+![throughput vs size](../results/20261120T164438Z_gha-ubuntu-24.04/throughput_vs_size.png)
+
+First, lets consider the STREAM data. We can notice that the throughput
+significatly increases when there is more than 1 thread. This shows the fact
+that, even though the STREAM run on 1 thread is limited by the memory bandwidth,
+the 1 thread does not constantly access the memory. Running the STREAM on 2
+threads makes the demand on memory higher and get closer to the memory final
+limit. The runs on 3 and 4 threads are not faster as they are running on the
+same cores. As such, the memory throughput is already maximal with 2 threads. We
+can observe a small decrease of the throughput with 3 threads. This decrease is
+too small to commit to an explanation. It might just be run variability. Or it
+might come from the fact that 2 threads are running  on the same physical core.
+With 4 thread, the same performance are achieved as what is achieved with 2
+threads.
+
+Regarind our kernel now: The first thing we can notice is that the 1 thread runs
+of the OMP kernel are slightly slower than the incremental version of the
+kernel. The difference decreases with the grid size. This is probably caused by
+the additional cost implied by OMP (which is totaly useless in the 1 thread
+case). With larger grids, this cost is masked because the limit is now the
+memory bandwidth.
+
+With 2 or more threads, all the OMP kernel exceed the sequential version in
+throughput.
+
+More precisely, with 2 threads, the throughput is maximal with the 512x512
+field. This field fits in the L3 cache, whichi is much faster than the central
+memory. On smaller field, the throughput is lower. This is because, with a
+smaller field, the constant cost of setting the OMP parallel section is paid
+more often. This cost is consequent on small fields and must not be neglected.
+We could expect the throughput to be even below the sequential kernel if the
+field was even smaller. On larger fields, the throughput gets lower. This is
+probably caused by the memory access which are becoming the limit.
+
+With 3 threads, the throughput si lower than with 2 threads. This can be
+explained by the fact taht, with 3 threads, there are 2 threads running on the
+same phisical core. Those 2 threads are given the same amount of data to compute
+as the 3rd thread on the second core. But those threads are going slower, and
+they are the ones limiting the total throughput. We cannot see a significant
+decrease in throughput with larger grids. This is probably because the limit
+with larger fields is the memory bandwidth (the field does not fit in the
+cache). The 2 threads on the same core are waiting in parallel.
+
+With 4 threads, the balance between the two cores is restored. The throughput
+gets close to the 2 thread runs on smaller fields, and even get higher on larger
+fields. With 2 threads, the memory limit is reached faster because there is some
+times when the thread is doing some computation and not doing some memory read
+and write. With 4 threads, the memory access are more evenly spread, allowing to
+benefit from a better global memory effective throughput. I am not sure why the
+throughput on smaller field is slightly smaller than the one with 2 threads.
+This might be caused by the cost of setting up the 4 threads, but this is just
+an hypothesis.
