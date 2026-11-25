@@ -68,7 +68,7 @@ c_new(i,j) = (1-S) c(i,j) + (Cx+Dx) c(i-1,j) + Dx c(i+1,j) + (Cy+Dy) c(i,j-1) + 
 ```
 
 Rewriting the update shows that `c_new(i,j)` is a weighted sum of `c(i,j)` and
-its four neighbours, with weights that sum to 1. The weight of `c(i,j)` is
+its four neighbors, with weights that sum to 1. The weight of `c(i,j)` is
 `1 - S`; all the others are non-negative. Therefore:
 
 - if `S <= 1`, the update is a **convex combination**: the scheme is stable,
@@ -90,7 +90,7 @@ The driver chooses `dt` from a target `S` (default 0.9).
 
 Why ghost cells rather than `% nx` in the inner loop: the inner loop stays
 branch-free and contiguous (vectorizable), and the MPI version will replace the
-periodic copy in `y` by a halo exchange between neighbouring ranks without
+periodic copy in `y` by a halo exchange between neighboring ranks without
 touching the kernel.
 
 ## 5. Verification (what the tests must check)
@@ -114,5 +114,5 @@ The observed order between two grids `n` and `2n` is
 
 This is not a weather model: no variable wind, no physics, no
 semi-Lagrangian or spectral method, no vertical dimension. The kernel is a
-representative memory-bound stencil, chosen to practise parallelization and
+representative memory-bound stencil, chosen to practice parallelization and
 performance measurement.

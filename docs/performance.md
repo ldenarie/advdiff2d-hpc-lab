@@ -23,8 +23,8 @@ involved.).
 ## On the validity of performance comparison
 
 The benchmarks run on GitHub Actions. As such, it is impossible to ensure that
-two differents job run on the same machine. Even on a signle machine, it is
-impossible to know the amount of ressources that is allocated to our job. In
+two different job run on the same machine. Even on a single machine, it is
+impossible to know the amount of resources that is allocated to our job. In
 order to make fair comparisons between the different version of our kernel, one
 should only compare runs that were performed on the same job. All comparison
 made further in this document are made this way. In particular, this explains
@@ -32,11 +32,11 @@ why, depending on the table, the same kernel can have different measures.
 
 ## Count instructions read per cell update
 
-In order to analyse where the time is spent, I used the callgrind tool from
+In order to analyze where the time is spent, I used the callgrind tool from
 valgrind.
 
 First, the driver needs to be compiled with the debugging information. The usual
-usage is to compile with `-DCMAKE_BUILD_TYPE=RelWithDebInfo`, but by defaut,
+usage is to compile with `-DCMAKE_BUILD_TYPE=RelWithDebInfo`, but by default,
 this option compiles with the optimization `O2`. In order to profile the same
 program that we want to run at the end, it is necessary to compile with `O3`.
 This can be done by just adding the option `-g`.
@@ -115,8 +115,8 @@ were not vectorized because of "control flow in loop". One possible reason is
 that the content of the loop involves a conditional execution (the advection
 term depends on the signs of the velocity components u and v).
 
-The fact that the compiler does not vectorize the loop only explais part of why
-the thoughput is so low. Another possible explanation is the nubmer of operation
+The fact that the compiler does not vectorize the loop only explains part of why
+the throughput is so low. Another possible explanation is the number of operation
 in each cell update. For every cell, multiple terms are computed, and these
 computation involves double floating point divisions, which are very costly
 compared to other operation.
@@ -178,7 +178,7 @@ c_new(i,j) = c(i,j) + (Cx+Dx) (c(i-1,j) - c(i,j)) + Dx (c(i+1,j) - c(i,j)) + (Cy
 
 This incremental formulation ensure that a uniform field is unchanged as each
 difference is 0. The price for this added precision is that there is now 4
-additional substraction in place of one substraction and a multiplication. This
+additional subtraction in place of one subtraction and a multiplication. This
 is a compromise that must be chosen using a proper measure. Running valgrind
 callgrind tool, it shows that the number of instruction read per cell update is
 now 10, which is a bit higher than 9. Running the benchmark on the CI, it show
@@ -203,7 +203,7 @@ Going from the naive to the optimized version goes from 135 to 1764 MLUP/s (for
 a 512 times 512 grid). While going from the optimized version to the one that is
 optimized but is more precise only drops down to 1357 MLUP/s. For sake of
 precision (which is important on long run simulation), I would argue that the
-version that keeps a uniform field unchanged is worth it. This is espacially
+version that keeps a uniform field unchanged is worth it. This is especially
 true because for larger grids, the limitation is the memory bandwidth, so the
 difference between the weighted and incremental version is even lower. Also, one
 thing that must be noted is that the kernel I decided to call more precise seems
@@ -229,11 +229,11 @@ There are multiple question that must be answered to make a proper parallelizati
 ### Which loop should be parallelized ?
 
 In the kernel, there two nested loop.  Both can in theory be parallelized. But
-it may not be interresting to parallelized both. I will only parallelize the
+it may not be interesting to parallelized both. I will only parallelize the
 outer loop for multiple reasons:
 
 - There is a fix cost at every parallelization block. If the work is done in the
-  inner loop, it is paied at each iteration of the outer loop. Both loop could be
+  inner loop, it is paid at each iteration of the outer loop. Both loop could be
   in the same parallel block though.
 
 - On this project, I only have a very few number of threads (up to 4). In all
@@ -250,7 +250,7 @@ schedule would produce better results.
 
 `apply_periodic_bc` is ran one time after each step. As such, it is a good
 candidate for parallelization. But lets consider the actual amount of
-computation occuring in this function to evaluate if it is even worth
+computation occurring in this function to evaluate if it is even worth
 considering it.
 
 In the kernel step function, the number of instruction read is the dimension of
@@ -277,7 +277,7 @@ threads.  There are 3 levels of cache :
 - L2: 1MiB per core.
 
 - L3: 32MiB for the while VM (and probably even shared with other VM on the same
-  physical machine, so subject to noise dpending on the usage).
+  physical machine, so subject to noise depending on the usage).
 
 The benchmark field sizes fits in the cache as following:
 
@@ -285,18 +285,18 @@ The benchmark field sizes fits in the cache as following:
 
 - 512²: larger than L2, but fits in L3 (in theory).
 
-- 2048²: larger than L3 (but not by a lot, and L3 is not reseved to our own
+- 2048²: larger than L3 (but not by a lot, and L3 is not reserved to our own
   usage, so should be considered outside of L3).
 
 - 4096²: larger than L3.
 
 For grids that fit in the cache, I would expect the OMP version of the kernel to
-be significantly faster. With 2 threads, if the 2 fold improvment will probably
+be significantly faster. With 2 threads, if the 2 fold improvement will probably
 not be reached, something close can be expected. With 3 or 4 thread, though, I
-woul not expect any additional improvment as these are SMT threads running on
+would not expect any additional improvement as these are SMT threads running on
 the same cores.
 
-For grids larger than the cache, I would expect small improvments but with a
+For grids larger than the cache, I would expect small improvements but with a
 threshold caused by the memory read. For 2 threads, this threshold should be
 equivalent to the threshold of the STREAM test for the same number of threads.
 Again, no additional gains are expected on 3 or 4 threads.
@@ -333,7 +333,7 @@ And here is the graph that shows the throughput comparison:
 ![throughput vs size](../results/20261120T164438Z_gha-ubuntu-24.04/throughput_vs_size.png)
 
 First, lets consider the STREAM data. We can notice that the throughput
-significatly increases when there is more than 1 thread. This shows the fact
+significantly increases when there is more than 1 thread. This shows the fact
 that, even though the STREAM run on 1 thread is limited by the memory bandwidth,
 the 1 thread does not constantly access the memory. Running the STREAM on 2
 threads makes the demand on memory higher and get closer to the memory final
@@ -345,10 +345,10 @@ might come from the fact that 2 threads are running  on the same physical core.
 With 4 thread, the same performance are achieved as what is achieved with 2
 threads.
 
-Regarind our kernel now: The first thing we can notice is that the 1 thread runs
+Regarding our kernel now: The first thing we can notice is that the 1 thread runs
 of the OMP kernel are slightly slower than the incremental version of the
 kernel. The difference decreases with the grid size. This is probably caused by
-the additional cost implied by OMP (which is totaly useless in the 1 thread
+the additional cost implied by OMP (which is totally useless in the 1 thread
 case). With larger grids, this cost is masked because the limit is now the
 memory bandwidth.
 
@@ -356,7 +356,7 @@ With 2 or more threads, all the OMP kernel exceed the sequential version in
 throughput.
 
 More precisely, with 2 threads, the throughput is maximal with the 512x512
-field. This field fits in the L3 cache, whichi is much faster than the central
+field. This field fits in the L3 cache, which is much faster than the central
 memory. On smaller field, the throughput is lower. This is because, with a
 smaller field, the constant cost of setting the OMP parallel section is paid
 more often. This cost is consequent on small fields and must not be neglected.
@@ -364,9 +364,9 @@ We could expect the throughput to be even below the sequential kernel if the
 field was even smaller. On larger fields, the throughput gets lower. This is
 probably caused by the memory access which are becoming the limit.
 
-With 3 threads, the throughput si lower than with 2 threads. This can be
-explained by the fact taht, with 3 threads, there are 2 threads running on the
-same phisical core. Those 2 threads are given the same amount of data to compute
+With 3 threads, the throughput is lower than with 2 threads. This can be
+explained by the fact that, with 3 threads, there are 2 threads running on the
+same physical core. Those 2 threads are given the same amount of data to compute
 as the 3rd thread on the second core. But those threads are going slower, and
 they are the ones limiting the total throughput. We cannot see a significant
 decrease in throughput with larger grids. This is probably because the limit

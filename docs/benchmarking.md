@@ -66,7 +66,7 @@ header and the number of lines.
 
 - **Effective bandwidth** = MLUP/s × bytes per update. The default of 24 bytes
   assumes the minimum traffic per cell: read `c`, write `c_new`, and the
-  write-allocate read of `c_new`; neighbours are assumed to come from cache.
+  write-allocate read of `c_new`; neighbors are assumed to come from cache.
   It is a model, not a measurement, and is labelled as such.
 - **Main-memory ceiling.** Before the kernels, `run_bench.sh` runs
   `bench/stream.cpp`, a mini-STREAM, once per thread count, in the same job.
@@ -95,7 +95,7 @@ header and the number of lines.
 ## 4. Limits of these measurements
 
 - **Shared virtual machines.** GitHub-hosted runners are VMs on shared hosts:
-  the CPU model changes between jobs and neighbours add noise. Only results
+  the CPU model changes between jobs and neighbors add noise. Only results
   from **the same job** are compared; `env.txt` records the machine.
 - **Few cores.** Public-repository runners have 4 vCPUs, which may be 2
   physical cores with 2 hardware threads each (see `Thread(s) per core` in
