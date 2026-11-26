@@ -52,8 +52,9 @@ header and the number of lines.
   about 2·10⁸ cell updates (tenths of a second to a few seconds), well above
   the clock resolution and the timer overhead.
 - **Grid sizes** cover the memory hierarchy: 128² (two fields ≈ 0.3 MB,
-  in L2), 512² (≈ 4 MB, in L3 on current runners), 2048² (≈ 67 MB) and
-  4096² (≈ 270 MB), far above the last-level cache, in main memory.
+  in L2), 512² (≈ 4 MB, in L3 on current runners), 2048² (≈ 67 MB),
+  4096² (≈ 270 MB) and 8192² (≈ 1.07 GB), far above the last-level cache, in
+  main memory.
 - **Test case.** Driver defaults: Gaussian of width 0.05 L centred in the
   domain, u = 1, v = 0.5, kappa = 1e-4, S = 0.9. The kernel is memory-bound
   and has no data-dependent branch, so its speed hardly depends on these

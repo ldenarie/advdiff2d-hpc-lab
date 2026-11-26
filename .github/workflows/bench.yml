@@ -7,7 +7,7 @@ on:
     inputs:
       sizes:
         description: "Grid sizes n (n x n)"
-        default: "128 512 2048 4096"
+        default: "128 512 2048 4096 8192"
       kernels:
         description: "Sequential kernels (run once, 1 thread)"
         default: "naive weighted incremental"

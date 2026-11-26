@@ -8,7 +8,7 @@
 #   -b DIR    build directory containing advdiff2d     (default: build-release)
 #   -o DIR    root directory for results               (default: results)
 #   -l LABEL  machine label used in the output name    (default: short hostname)
-#   -s LIST   grid sizes n (n x n grid)                (default: "128 512 2048 4096")
+#   -s LIST   grid sizes n (n x n grid)                (default: "128 512 2048 4096 8192")
 #   -k LIST   sequential kernels, run once with 1 thread (default: "naive weighted incremental")
 #   -p LIST   parallel kernels, run for each value of -t (default: "omp")
 #   -t LIST   values of OMP_NUM_THREADS for -p kernels (default: "1 2 3 4")
@@ -22,7 +22,7 @@ set -euo pipefail
 build_dir=build-release
 out_root=results
 label=$(hostname -s 2>/dev/null || echo unknown)
-sizes="128 512 2048 4096"
+sizes="128 512 2048 4096 8192"
 kernels="naive weighted incremental"
 parallel_kernels="omp"
 threads_list="1 2 3 4"
