@@ -56,12 +56,13 @@ header and the number of lines.
   4096² (≈ 270 MB) and 8192² (≈ 1.07 GB), far above the last-level cache, in
   main memory.
 - **Test case.** Driver defaults: Gaussian of width 0.05 L centred in the
-  domain, u = 1, v = 0.5, kappa = 1e-4, S = 0.9. The kernel is memory-bound
-  and has no data-dependent branch, so its speed hardly depends on these
-  values; they are fixed so that every run measures the same computation.
-- **Traceability.** Each run writes `results/<UTC time>_<label>/` with
-  `raw.csv` (every repetition) and `env.txt` (commit, compiler, flags, CPU
-  model, `lscpu`, memory, `OMP_*` variables).
+  domain, u = 1, v = 0.5, kappa = 1e-4, S = 0.9. The kernel has no
+  data-dependent branch, so its speed hardly depends on these values;
+  they are fixed so that every run measures the same computation.
+- **Traceability.** Each run writes `results/<UTC time>_<label>/` with `raw.csv`
+  (every repetition) and `env.txt` (commit, compiler, flags, CPU model, `lscpu`,
+  memory, `OMP_*` variables). Runs kept in `results/` are taken from `main`.
+  Commits of runs taken on branches are preserved with a `bench/<date>` tag.
 
 ## 3. Derived quantities
 

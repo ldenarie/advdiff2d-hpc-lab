@@ -382,3 +382,74 @@ benefit from a better global memory effective throughput. I am not sure why the
 throughput on smaller field is slightly smaller than the one with 2 threads.
 This might be caused by the cost of setting up the 4 threads, but this is just
 an hypothesis.
+
+## Final run
+
+In order to show the performance progression along all the modifications, a
+final run was launched (data available in
+`results/20261126T132002Z_gha-ubuntu-24.04`). This run was performed on a
+different machine than the previous run. The previous run was executed on Zen 4,
+while this run was performed on Zen 3. The results show significant differences.
+
+| kernel | threads | grid | steps | reps | median MLUP/s | min–max | spread | eff. GB/s | % of ceiling |
+|---|---|---|---|---|---|---|---|---|---|
+| incremental | 1 | 128×128 | 12208 | 7 | 1148.2 | 1145.6–1149.1 | 0.3 % | 27.56 | 81 % |
+| incremental | 1 | 512×512 | 763 | 7 | 1141.9 | 1131.0–1144.1 | 1.1 % | 27.41 | 80 % |
+| incremental | 1 | 2048×2048 | 48 | 7 | 1155.5 | 1141.6–1159.4 | 1.5 % | 27.73 | 81 % |
+| incremental | 1 | 4096×4096 | 12 | 7 | 1107.3 | 1100.9–1111.5 | 1.0 % | 26.58 | 78 % |
+| incremental | 1 | 8192×8192 | 3 | 7 | 1142.4 | 1138.8–1153.0 | 1.2 % | 27.42 | 80 % |
+| naive | 1 | 128×128 | 12208 | 7 | 117.3 | 117.2–117.4 | 0.2 % | 2.82 | 8 % |
+| naive | 1 | 512×512 | 763 | 7 | 117.3 | 116.8–117.4 | 0.5 % | 2.81 | 8 % |
+| naive | 1 | 2048×2048 | 48 | 7 | 117.2 | 116.0–117.3 | 1.1 % | 2.81 | 8 % |
+| naive | 1 | 4096×4096 | 12 | 7 | 117.2 | 117.1–117.3 | 0.2 % | 2.81 | 8 % |
+| naive | 1 | 8192×8192 | 3 | 7 | 117.1 | 117.0–117.2 | 0.1 % | 2.81 | 8 % |
+| omp | 1 | 128×128 | 12208 | 7 | 1094.0 | 1090.4–1095.8 | 0.5 % | 26.26 | 77 % |
+| omp | 1 | 512×512 | 763 | 7 | 1134.2 | 1111.8–1135.0 | 2.0 % | 27.22 | 80 % |
+| omp | 1 | 2048×2048 | 48 | 7 | 1124.4 | 1112.3–1127.6 | 1.4 % | 26.99 | 79 % |
+| omp | 1 | 4096×4096 | 12 | 7 | 1117.4 | 1116.9–1119.9 | 0.3 % | 26.82 | 79 % |
+| omp | 1 | 8192×8192 | 3 | 7 | 1148.8 | 1127.0–1158.0 | 2.7 % | 27.57 | 81 % |
+| omp | 2 | 128×128 | 12208 | 7 | 1942.3 | 1909.6–1946.8 | 1.9 % | 46.61 | 95 % |
+| omp | 2 | 512×512 | 763 | 7 | 2307.9 | 2284.6–2315.8 | 1.4 % | 55.39 | 113 % |
+| omp | 2 | 2048×2048 | 48 | 7 | 2197.8 | 2079.1–2208.9 | 5.9 % | 52.75 | 108 % |
+| omp | 2 | 4096×4096 | 12 | 7 | 2020.9 | 1983.0–2026.5 | 2.2 % | 48.50 | 99 % |
+| omp | 2 | 8192×8192 | 3 | 7 | 2057.6 | 1815.7–2065.4 | 12.1 % | 49.38 | 101 % |
+| omp | 3 | 128×128 | 12208 | 7 | 1580.0 | 1574.3–1581.3 | 0.4 % | 37.92 | 75 % |
+| omp | 3 | 512×512 | 763 | 7 | 1749.4 | 1748.3–1752.4 | 0.2 % | 41.99 | 84 % |
+| omp | 3 | 2048×2048 | 48 | 7 | 1790.4 | 1778.5–1794.7 | 0.9 % | 42.97 | 85 % |
+| omp | 3 | 4096×4096 | 12 | 7 | 1690.4 | 1676.5–1692.9 | 1.0 % | 40.57 | 81 % |
+| omp | 3 | 8192×8192 | 3 | 7 | 1698.2 | 1615.3–1708.2 | 5.5 % | 40.76 | 81 % |
+| omp | 4 | 128×128 | 12208 | 7 | 1958.2 | 1916.9–1966.6 | 2.5 % | 47.00 | 88 % |
+| omp | 4 | 512×512 | 763 | 7 | 2262.3 | 2185.2–2282.5 | 4.3 % | 54.30 | 102 % |
+| omp | 4 | 2048×2048 | 48 | 7 | 2367.9 | 2334.6–2381.0 | 2.0 % | 56.83 | 107 % |
+| omp | 4 | 4096×4096 | 12 | 7 | 2149.8 | 2108.4–2170.1 | 2.9 % | 51.60 | 97 % |
+| omp | 4 | 8192×8192 | 3 | 7 | 2082.9 | 1904.8–2104.9 | 9.6 % | 49.99 | 94 % |
+| weighted | 1 | 128×128 | 12208 | 7 | 1373.5 | 1357.8–1376.8 | 1.4 % | 32.97 | 97 % |
+| weighted | 1 | 512×512 | 763 | 7 | 1420.7 | 1404.6–1423.0 | 1.3 % | 34.10 | 100 % |
+| weighted | 1 | 2048×2048 | 48 | 7 | 1312.0 | 1306.7–1314.4 | 0.6 % | 31.49 | 92 % |
+| weighted | 1 | 4096×4096 | 12 | 7 | 1295.0 | 1223.5–1310.4 | 6.7 % | 31.08 | 91 % |
+| weighted | 1 | 8192×8192 | 3 | 7 | 1283.6 | 1276.5–1290.8 | 1.1 % | 30.81 | 90 % |
+
+The first noticeable thing is that the sequential kernel are no longer limited
+by memory on larger fields. The limit is the computational power. As a
+consequence, the `weighted` kernel is faster than the `incremental` kernel even
+on larger fields. The memory bandwidth only becomes the limit with 2 threads or
+more.
+
+Also, we can see that the STREAM ceiling is reached by the omp kernel running
+with 2 threads on fields that do not fit in the cache: 99 % for a 4096x4096
+fields, and about 100 %, ie. at  the ceiling within measurement noise, for the
+8192x8192 field. This suggests that the memory bandwidth is saturated with only
+2 threads. This explains why there is no further improvement with 4 threads. The
+fact that there is 2 additional thread cannot increase the memory access by
+adding more demands as the memory is already saturated.
+
+These results shows that the performances of a kernel is dependent on the
+hardware used. When tuning a system to optimize performances, it is important to
+run the benchmarks on the target hardware.
+
+Additionally, the choice to favor the kernel `incremental` compared to
+`weighted` was done with the argument that the performance difference was
+minimal with large fields. This last test shows that a different hardware may
+make this difference larger. The conflict between performance and precision that
+was arbitrated before in favor of `incremental` may yield a different choice
+depending on the hardware.
